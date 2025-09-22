@@ -98,7 +98,7 @@ function AttachLaserActions(laser, direction)
       self.position.x += 4 * self.direction
 
       for enemy in entities:enemies() do
-        if distance(self.position, enemy.position) <= 8 then
+        if distance(self.position, enemy.position) <= 8 and enemy.state ~= ENEMY_DYING then
           self.state = LASER_EXPLODING
           self.explosion_idx = 0
           enemy:kill()
@@ -217,39 +217,46 @@ function BuildEntity(x, y)
   return entity
 end
 
-player = AttachPlayerActions(BuildEntity(8, 12 * 8, 16))
-entities = { AttachEnemyActions(BuildEntity(15 * 8, 12 * 8, 32)) }
+function MakeEntities()
+  entities = {}
 
-function entities:spawn(entity)
-  self[#self + 1] = entity
-end
-
-function entities:update()
-  to_delete = {}
-  for i, entity in ipairs(self) do
-    entity:update()
-    if (entity:should_despawn()) to_delete[#to_delete + 1] = i
+  function entities:spawn(entity)
+    self[#self + 1] = entity
   end
 
-  for idx = #to_delete, 1, -1 do
-    local i = to_delete[idx]
-    self[i], self[#self] = self[#self], self[i]
-    self[#self] = nil
-  end
-end
+  function entities:update()
+    to_delete = {}
+    for i, entity in ipairs(self) do
+      entity:update()
+      if (entity:should_despawn()) to_delete[#to_delete + 1] = i
+    end
 
-function entities:enemies()
-  local idx = 1
-  return function()
-    while idx <= #self do
-      local result = self[idx]
-      idx += 1
-      if result.type == TYPE_ENEMY then
-        return result
+    for idx = #to_delete, 1, -1 do
+      local i = to_delete[idx]
+      self[i], self[#self] = self[#self], self[i]
+      self[#self] = nil
+    end
+  end
+
+  function entities:enemies()
+    local idx = 1
+    return function()
+      while idx <= #self do
+        local result = self[idx]
+        idx += 1
+        if result.type == TYPE_ENEMY then
+          return result
+        end
       end
     end
   end
+
+  return entities
 end
+
+player = AttachPlayerActions(BuildEntity(8, 12 * 8, 16))
+entities = MakeEntities()
+entities:spawn(AttachEnemyActions(BuildEntity(15 * 8, 12 * 8, 32)))
 
 function UpdateEntities()
   player:update()
