@@ -254,11 +254,21 @@ function MakeEntities()
   return entities
 end
 
-player = AttachPlayerActions(BuildEntity(8, 12 * 8, 16))
+player = AttachPlayerActions(BuildEntity(8, 12 * 8))
 entities = MakeEntities()
-entities:spawn(AttachEnemyActions(BuildEntity(15 * 8, 12 * 8, 32)))
+entities:spawn(AttachEnemyActions(BuildEntity(15 * 8, 12 * 8)))
+
+ENEMY_SPAWN_PERIOD = 10
+
+function ContinuousSpawnEnemies()
+  if (time % ENEMY_SPAWN_PERIOD ~= 0) return
+  local x = rnd { -8, 17 * 8 }
+  local y = 12 * 8
+  entities:spawn(AttachEnemyActions(BuildEntity(x, y)))
+end
 
 function UpdateEntities()
+  ContinuousSpawnEnemies()
   player:update()
   entities:update()
 end
