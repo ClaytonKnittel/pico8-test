@@ -101,7 +101,7 @@ function AttachLaserActions(laser, direction)
         if distance(self.position, enemy.position) <= 8 and enemy.state ~= ENEMY_DYING then
           self.state = LASER_EXPLODING
           self.explosion_idx = 0
-          enemy:kill()
+          enemy:hit()
         end
       end
     else
@@ -134,6 +134,7 @@ ENEMY_DYING = 2
 
 ENEMY_DX = 0.05
 
+ENEMY_HP = 2
 ENEMY_DEATH_TIME = ANIMATION_FREQ * 3
 
 function AttachEnemyActions(enemy)
@@ -141,6 +142,7 @@ function AttachEnemyActions(enemy)
   enemy.sprite = 32
   enemy.state = ENEMY_IDLE
   enemy.direction = -1
+  enemy.hp = ENEMY_HP
 
   function enemy:update()
     if self.state ~= ENEMY_DYING then
@@ -185,11 +187,15 @@ function AttachEnemyActions(enemy)
     return self.state == ENEMY_DYING and time - self.start_time >= ENEMY_DEATH_TIME
   end
 
-  function enemy:kill()
-    if (self.state == ENEMY_DYING) return
-    self.state = ENEMY_DYING
-    self.start_time = time
-    self.position.dx = 0
+  function enemy:hit()
+    if (self.hp == 0) return
+    self.hp = self.hp - 1
+
+    if self.hp == 0 then
+      self.state = ENEMY_DYING
+      self.start_time = time
+      self.position.dx = 0
+    end
   end
 
   return enemy
