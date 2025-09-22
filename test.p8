@@ -72,7 +72,7 @@ function AttachPlayerActions(player)
     if (btnp(BTN_Z)) self:jump(JUMP_DY)
     if btnp(BTN_X) then
       sfx(4, 1)
-      entities[#entities + 1] = AttachLaserActions(BuildEntity(self.position.x, self.position.y), self.direction)
+      entities:spawn(AttachLaserActions(BuildEntity(self.position.x, self.position.y), self.direction))
     end
     self.position:update()
   end
@@ -101,6 +101,7 @@ function AttachLaserActions(laser, direction)
         if distance(self.position, enemy.position) <= 8 then
           self.state = LASER_EXPLODING
           self.explosion_idx = 0
+          enemy:kill()
         end
       end
     else
@@ -129,8 +130,11 @@ end
 
 ENEMY_IDLE = 0
 ENEMY_HUNGRY = 1
+ENEMY_DYING = 2
 
 ENEMY_DX = 0.05
+
+ENEMY_DEATH_TIME = ANIMATION_FREQ * 3
 
 function AttachEnemyActions(enemy)
   enemy.type = TYPE_ENEMY
@@ -139,22 +143,24 @@ function AttachEnemyActions(enemy)
   enemy.direction = -1
 
   function enemy:update()
-    if distance(self.position, player.position) <= 32 then
-      if self.state ~= ENEMY_HUNGRY then
-        self.state = ENEMY_HUNGRY
-        self.start_time = time
+    if self.state ~= ENEMY_DYING then
+      if distance(self.position, player.position) <= 32 then
+        if self.state ~= ENEMY_HUNGRY then
+          self.state = ENEMY_HUNGRY
+          self.start_time = time
+        end
+      else
+        self.state = ENEMY_IDLE
+        self.start_time = nil
       end
-    else
-      self.state = ENEMY_IDLE
-      self.start_time = nil
-    end
 
-    if self.position.x > player.position.x then
-      enemy.direction = -1
-      self.position.dx = max(self.position.dx - ENEMY_DX, -1)
-    else
-      enemy.direction = 1
-      self.position.dx = min(self.position.dx + ENEMY_DX, 1)
+      if self.position.x > player.position.x then
+        enemy.direction = -1
+        self.position.dx = max(self.position.dx - ENEMY_DX, -1)
+      else
+        enemy.direction = 1
+        self.position.dx = min(self.position.dx + ENEMY_DX, 1)
+      end
     end
 
     self.position:update()
@@ -163,14 +169,27 @@ function AttachEnemyActions(enemy)
   function enemy:draw_index()
     if self.state == ENEMY_IDLE then
       return self.sprite + flr(time / ANIMATION_FREQ) % 2
-    else
+    elseif self.state == ENEMY_HUNGRY then
       local idx = flr(2 * (time - self.start_time) / ANIMATION_FREQ)
       return self.sprite + 2 + min(idx % 4, 4 - idx % 4)
+    else
+      local idx = flr(2 * (time - self.start_time) / ANIMATION_FREQ)
+      return self.sprite + 5 + min(idx, 2)
     end
   end
 
   function enemy:flip_x()
     return self.direction > 0
+  end
+  function enemy:should_despawn()
+    return self.state == ENEMY_DYING and time - self.start_time >= ENEMY_DEATH_TIME
+  end
+
+  function enemy:kill()
+    if (self.state == ENEMY_DYING) return
+    self.state = ENEMY_DYING
+    self.start_time = time
+    self.position.dx = 0
   end
 
   return enemy
@@ -201,11 +220,29 @@ end
 player = AttachPlayerActions(BuildEntity(8, 12 * 8, 16))
 entities = { AttachEnemyActions(BuildEntity(15 * 8, 12 * 8, 32)) }
 
+function entities:spawn(entity)
+  self[#self + 1] = entity
+end
+
+function entities:update()
+  to_delete = {}
+  for i, entity in ipairs(self) do
+    entity:update()
+    if (entity:should_despawn()) to_delete[#to_delete + 1] = i
+  end
+
+  for idx = #to_delete, 1, -1 do
+    local i = to_delete[idx]
+    self[i], self[#self] = self[#self], self[i]
+    self[#self] = nil
+  end
+end
+
 function entities:enemies()
   local idx = 1
   return function()
-    while idx <= #entities do
-      local result = entities[idx]
+    while idx <= #self do
+      local result = self[idx]
       idx += 1
       if result.type == TYPE_ENEMY then
         return result
@@ -216,17 +253,7 @@ end
 
 function UpdateEntities()
   player:update()
-  to_delete = {}
-  for i, entity in ipairs(entities) do
-    entity:update()
-    if (entity:should_despawn()) to_delete[#to_delete + 1] = i
-  end
-
-  for idx = #to_delete, 1, -1 do
-    local i = to_delete[idx]
-    entities[i], entities[#entities] = entities[#entities], entities[i]
-    entities[#entities] = nil
-  end
+  entities:update()
 end
 
 function _update()
@@ -264,11 +291,11 @@ __gfx__
 00000000000000000000000007202000000722000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0002200000022000220220000072a20000002a200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0022220000222200702a220000002220000722200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-22a11a2222a11a2200701a2207071a2270701a220000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-01111110011111100111111001111110111111100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00100100001001000010010000100100001001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0c000c0000c00c0000c00c000c000c0000c00c000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-01000010001001000010010001000010001001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+22a11a2222a11a2200701a2207071a2270701a220002200000000000000000000000000000000000000000000000000000000000000000000000000000000000
+01111110011111100111111001111110111111100022220000000000000000000000000000000000000000000000000000000000000000000000000000000000
+001001000010010000100100001001000010010022a11a2200022000000220000000000000000000000000000000000000000000000000000000000000000000
+0c000c0000c00c0000c00c000c000c0000c00c000111111000222200002222000000000000000000000000000000000000000000000000000000000000000000
+01000010001001000010010001000010001001000010010022a11a22220110220000000000000000000000000000000000000000000000000000000000000000
 __map__
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
