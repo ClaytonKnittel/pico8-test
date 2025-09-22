@@ -114,7 +114,7 @@ function AttachPlayerActions(player)
 
     if (btnp(BTN_Z)) self:jump(JUMP_DY)
     if btnp(BTN_X) then
-      sfx(4, 1)
+      sfx(4, 3)
       entities:spawn(AttachLaserActions(BuildEntity(self.position.x, self.position.y), self.direction))
     end
     self.position:update()
