@@ -321,7 +321,7 @@ player = AttachPlayerActions(BuildEntity(7 * 8, 12 * 8))
 entities = MakeEntities()
 entities:spawn(AttachEnemyActions(BuildEntity(15 * 8, 12 * 8)))
 
-ENEMY_SPAWN_PERIOD = 10
+ENEMY_SPAWN_PERIOD = 60
 
 function ContinuousSpawnEnemies()
   if (time % ENEMY_SPAWN_PERIOD ~= 0 or player.state == PLAYER_DYING) return
