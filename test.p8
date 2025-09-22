@@ -44,7 +44,7 @@ end
 function termination_state:update()
   if (self.state == TERM_PLAYING) return
   if time - self.start_time > self.initial_width / TERM_CLIP_SPEED then
-    extcmd("shutdown")
+    extcmd("reset")
   end
 end
 
