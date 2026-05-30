@@ -2,6 +2,8 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 
+DEBUG = false
+
 LEFT = 0
 RIGHT = 1
 UP = 2
@@ -34,6 +36,9 @@ local TileType = {
   WALL = 1,
   EXIT = 2,
   ENTRANCE = 3,
+  -- A phony tile for enemies to "reserve", prevenging other tiles from being
+  -- placed.
+  ENEMY_HOLD = 4,
 }
 
 time = 0
@@ -59,8 +64,18 @@ OFFSCREEN_END_POS = {
   y = WORLD_HEIGHT,
 }
 
-MAX_ENEMIES = 16
-enemies = {}
+function OppositeDir(dir)
+  if dir == Direction.LEFT then
+    return Direction.RIGHT
+  elseif dir == Direction.RIGHT then
+    return Direction.LEFT
+  elseif dir == Direction.UP then
+    return Direction.DOWN
+  else
+    assert(dir == Direction.DOWN)
+    return Direction.UP
+  end
+end
 
 function Index(x, y)
   return x + y * WORLD_WIDTH + 1
@@ -101,21 +116,200 @@ function PosEq(p1, p2)
   return p1.x == p2.x and p1.y == p2.y
 end
 
-function MakeGrid()
-  local grid = {}
-  for y = 0, WORLD_HEIGHT - 1 do
-    for x = 0, WORLD_WIDTH - 1 do
-      grid[Index(x, y)] = TileType.EMPTY
+function PosInBounds(pos)
+  return pos.x >= 0 and pos.x < WORLD_WIDTH and pos.y >= 0 and pos.y < WORLD_HEIGHT
+end
+
+function EnemyCanOccupyPos(pos)
+  local tile = grid.tile(pos)
+  return tile == TileType.EMPTY
+      or tile == TileType.ENTRANCE
+      or tile == TileType.EXIT
+      or tile == TileType.ENEMY_HOLD
+end
+
+function MakeQueue()
+  local queue = {}
+
+  local front = 0
+  local back = 0
+
+  function queue.pop()
+    assert(front <= back)
+    if front == back then
+      return nil
+    else
+      result = queue[front]
+      queue[front] = nil
+      front += 1
+      return result
     end
   end
 
-  grid[PosIndex(START_POS)] = TileType.ENTRANCE
-  grid[PosIndex(END_POS)] = TileType.EXIT
+  function queue.push(item)
+    queue[back] = item
+    back += 1
+  end
+
+  return queue
+end
+
+function MakeGrid()
+  local grid = {}
+
+  local tiles = {}
+  local enemy_path_map = nil
+
+  for y = 0, WORLD_HEIGHT - 1 do
+    for x = 0, WORLD_WIDTH - 1 do
+      tiles[Index(x, y)] = TileType.EMPTY
+    end
+  end
+
+  tiles[PosIndex(START_POS)] = TileType.ENTRANCE
+  tiles[PosIndex(END_POS)] = TileType.EXIT
+
+  local function BuildEnemyPathMap()
+    local queue = MakeQueue()
+    queue.push({
+      pos = END_POS,
+      dir = Direction.DOWN,
+    })
+    local path_map = {}
+
+    while true do
+      local item = queue.pop()
+      if item == nil then
+        break
+      end
+
+      local index = PosIndex(item.pos)
+
+      if path_map[index] == nil then
+        path_map[index] = item.dir
+
+        for _, dir in pairs(Direction) do
+          local next_pos = PosAfter(item.pos, dir)
+          if PosInBounds(next_pos) and EnemyCanOccupyPos(next_pos) then
+            queue.push({
+              pos = next_pos,
+              dir = OppositeDir(dir),
+            })
+          end
+        end
+      end
+    end
+
+    return path_map
+  end
+
+  function grid.tile(pos)
+    return tiles[PosIndex(pos)]
+  end
+
+  local function AllTilesReachableInPathMap(path_map)
+    for tile_index in enemy_hold_map.occupied_tiles() do
+      if path_map[tile_index] == nil then
+        return false
+      end
+    end
+
+    if path_map[PosIndex(START_POS)] == nil then
+      return false
+    end
+
+    return true
+  end
+
+  function grid.try_set_tile(pos, tile)
+    local index = PosIndex(pos)
+    local prev_tile = tiles[index]
+    tiles[index] = tile
+    local new_enemy_path_map = BuildEnemyPathMap()
+    if AllTilesReachableInPathMap(new_enemy_path_map) then
+      enemy_path_map = new_enemy_path_map
+    else
+      tiles[index] = prev_tile
+    end
+  end
+
+  function grid.place_enemy_hold(pos)
+    local index = PosIndex(pos)
+    local tile = tiles[index]
+    if tile == TileType.ENTRANCE or tile == TileType.EXIT then
+      return
+    end
+    assert(tile == TileType.EMPTY)
+    tiles[index] = TileType.ENEMY_HOLD
+  end
+
+  function grid.remove_enemy_hold(pos)
+    local index = PosIndex(pos)
+    local tile = tiles[index]
+    if tile == TileType.ENTRANCE or tile == TileType.EXIT then
+      return
+    end
+    assert(tile == TileType.ENEMY_HOLD)
+    tiles[index] = TileType.EMPTY
+  end
+
+  function grid.enemy_dir_at(pos)
+    if enemy_path_map == nil then
+      enemy_path_map = BuildEnemyPathMap()
+    end
+    return enemy_path_map[PosIndex(pos)]
+  end
 
   return grid
 end
 
 grid = MakeGrid()
+
+function MakeEnemyHoldMap()
+  local enemy_hold_map = {}
+
+  local hold_map = {}
+
+  function enemy_hold_map.occupied()
+    return hold_map[index] ~= nil
+  end
+
+  function enemy_hold_map.occupied_tiles()
+    return pairs(hold_map)
+  end
+
+  function enemy_hold_map.occupy(pos)
+    if not PosInBounds(pos) then
+      return
+    end
+
+    local index = PosIndex(pos)
+    if hold_map[index] == nil then
+      hold_map[index] = 1
+      grid.place_enemy_hold(pos)
+    else
+      hold_map[index] += 1
+    end
+  end
+
+  function enemy_hold_map.vacate(pos)
+    if not PosInBounds(pos) then
+      return
+    end
+
+    local index = PosIndex(pos)
+    if hold_map[index] == 1 then
+      hold_map[index] = nil
+      grid.remove_enemy_hold(pos)
+    else
+      hold_map[index] -= 1
+    end
+  end
+
+  return enemy_hold_map
+end
+
+enemy_hold_map = MakeEnemyHoldMap()
 
 function MakeEnemy(i)
   local enemy = {
@@ -126,40 +320,40 @@ function MakeEnemy(i)
   local MAX_PROGRESS = 16
   local progress = 0
 
-  local function update_dir()
-    local dx = END_POS.x - enemy.to_tile.x
-    local dy = END_POS.y - enemy.to_tile.y
-    if abs(dx) > abs(dy) then
-      if dx < 0 then
-        enemy.direction = Direction.LEFT
-      else
-        enemy.direction = Direction.RIGHT
-      end
-    else
-      if dy < 0 then
-        enemy.direction = Direction.UP
-      else
-        enemy.direction = Direction.DOWN
-      end
-    end
-  end
+  enemy_hold_map.occupy(enemy.to_tile)
 
   function enemy.update()
-    progress += 1
-    if progress == MAX_PROGRESS then
-      progress = 0
+    local result = {
+      should_erase = false,
+    }
 
-      if PosEq(enemy.to_tile, END_POS) then
-        enemy.direction = Direction.DOWN
-      elseif PosEq(enemy.to_tile, OFFSCREEN_END_POS) then
-        enemies[i] = nil
-        return
-      else
-        update_dir()
-      end
-      
-      enemy.to_tile = PosAfter(enemy.to_tile, enemy.direction)
+    progress += 1
+    if progress ~= MAX_PROGRESS then
+      return result
     end
+
+    progress = 0
+
+    local from_tile = enemy.to_tile
+    local prev_from_tile = PosAfter(from_tile, OppositeDir(enemy.direction))
+
+    if PosEq(from_tile, END_POS) then
+      enemy.direction = Direction.DOWN
+    elseif PosEq(from_tile, OFFSCREEN_END_POS) then
+      result.should_erase = true
+      return result
+    else
+      local dir = grid.enemy_dir_at(from_tile)
+      assert(dir ~= nil)
+      enemy.direction = dir
+    end
+
+    enemy.to_tile = PosAfter(from_tile, enemy.direction)
+
+    enemy_hold_map.vacate(prev_from_tile)
+    enemy_hold_map.occupy(enemy.to_tile)
+
+    return result
   end
 
   function enemy.draw()
@@ -186,6 +380,42 @@ function MakeEnemy(i)
 
   return enemy
 end
+
+function MakeEnemyMap()
+  enemy_map = {}
+  
+  local MAX_ENEMIES = 16
+  local enemies = {}
+
+  function enemy_map.try_spawn_at_entrance()
+    for i = 1, MAX_ENEMIES do
+      if enemies[i] == nil then
+        enemies[i] = MakeEnemy(i)
+        return true
+      end
+    end
+    return false
+  end
+
+  function enemy_map.update()
+    for i, enemy in pairs(enemies) do
+      local result = enemy.update()
+      if result.should_erase then
+        enemies[i] = nil
+      end
+    end
+  end
+
+  function enemy_map.draw()
+    for _, enemy in pairs(enemies) do
+      enemy.draw()
+    end
+  end
+
+  return enemy_map
+end
+
+enemy_map = MakeEnemyMap()
 
 function UpdateCursor()
   local FREQ = 4
@@ -216,12 +446,11 @@ function UpdateCursor()
   end
 
   if Pressed(BTN_Z) then
-    local index = PosIndex(cursor_pos)
-    local wall_type = grid[index]
+    local wall_type = grid.tile(cursor_pos)
     if wall_type == TileType.EMPTY then
-      grid[index] = TileType.WALL
+      grid.try_set_tile(cursor_pos, TileType.WALL)
     elseif wall_type == TileType.WALL then
-      grid[index] = TileType.EMPTY
+      grid.try_set_tile(cursor_pos, TileType.EMPTY)
     end
   end
 end
@@ -236,7 +465,7 @@ end
 function DrawGrid()
   for y = 0, WORLD_HEIGHT - 1 do
     for x = 0, WORLD_WIDTH - 1 do
-      local tile = grid[Index(x, y)]
+      local tile = grid.tile({ x = x, y = y })
       local id
       if tile == TileType.WALL then
         id = TileId.WALL + (x + y) % 2
@@ -244,10 +473,31 @@ function DrawGrid()
         id = TileId.ENTRANCE
       elseif tile == TileType.EXIT then
         id = TileId.EXIT
+      elseif tile == TileType.ENEMY_HOLD then
+        id = 36
       else
         assert(tile == TileType.EMPTY)
+        local dir = grid.enemy_dir_at({ x = x, y = y })
+        if dir == Direction.LEFT then
+          id = 32
+        elseif dir == Direction.RIGHT then
+          id = 33
+        elseif dir == Direction.UP then
+          id = 34
+        elseif dir == Direction.DOWN then
+          id = 35
+        else
+          assert(dir == nil)
+          goto continue
+        end
+
+        -- goto continue
+      end
+
+      if not DEBUG and id >= 32 then
         goto continue
       end
+
       spr(id, x * TILE_WIDTH, y * TILE_WIDTH)
 
       ::continue::
@@ -256,24 +506,15 @@ function DrawGrid()
 end
 
 function UpdateEnemies()
-  for _, enemy in pairs(enemies) do
-    enemy.update()
-  end
+  enemy_map.update()
 
   if time % 100 == 99 then
-    for i = 1, MAX_ENEMIES do
-      if enemies[i] == nil then
-        enemies[i] = MakeEnemy(i)
-        break
-      end
-    end
+    enemy_map.try_spawn_at_entrance()
   end
 end
 
 function DrawEnemies()
-  for _, enemy in pairs(enemies) do
-    enemy.draw()
-  end
+  enemy_map.draw()
 end
 
 function _update()
@@ -305,3 +546,11 @@ __gfx__
 00000000000000000000601000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00600000006660000060060000666000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00600000006006000060060000600600006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00600000006660000060060000600600006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00600000006060000060060000600600006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00666600006006000006660000666000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
