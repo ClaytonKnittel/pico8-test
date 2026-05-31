@@ -44,7 +44,7 @@ TileType = {
   ARCHER = 5,
 }
 
-SELECTED_TOWER = WALL
+selected_tower = TileType.WALL
 
 Towers = {
   WALL = true,
@@ -344,13 +344,13 @@ function MakeArrow(start_pos, target_pos)
 
     local id
     if dy < 0.256 * dx then
-      id = TileId.ARROW
+      id = TileSpriteId.ARROW
     elseif dy < 0.666 * dx then
-      id = TileId.ARROW + 1
+      id = TileSpriteId.ARROW + 1
     elseif dx < 0.256 * dy then
-      id = TileId.ARROW + 3
+      id = TileSpriteId.ARROW + 3
     else
-      id = TileId.ARROW + 2
+      id = TileSpriteId.ARROW + 2
     end
 
     return {
@@ -552,7 +552,7 @@ function UpdateCursor()
   -- Place tower
   if Pressed(BTN_Z) then
     local grid_tile_type = grid.tile(cursor_pos)
-    local selected_tower_type = TileType.SELECTED_TOWER
+    local selected_tower_type = selected_tower
 
     if grid_tile_type == TileType.EMPTY then
       grid.try_set_tile(cursor_pos, selected_tower_type)
@@ -563,12 +563,12 @@ function UpdateCursor()
 
   -- Scroll to next tower option
   if Pressed(BTN_X) then
-    local selected_type = TileType.SELECTED_TOWER
-    -- increment type to next tower
-    repeat
-      selected_type = (selected_type + 1) % #TileType
-    until Towers.selected_type
-    SELECTED_TOWER = selected_type
+    if selected_tower == TileType.WALL then
+      selected_tower = TileType.ARCHER
+    else
+      assert(selected_tower == TileType.ARCHER)
+      selected_tower = TileType.WALL
+    end
   end 
 end
 
@@ -590,6 +590,8 @@ function DrawGrid()
         id = TileSpriteId.ENTRANCE
       elseif tile == TileType.EXIT then
         id = TileSpriteId.EXIT
+      elseif tile == TileType.ARCHER then
+        id = TileSpriteId.ARCHER
       elseif tile == TileType.ENEMY_HOLD then
         id = 36
       else
@@ -644,7 +646,7 @@ end
 function _update()
   UpdateCursor()
   UpdateEnemies()
-  UpdateTowers()
+  -- UpdateTowers()
   time += 1
 end
 
