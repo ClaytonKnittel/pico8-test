@@ -307,7 +307,11 @@ function MakeGrid()
     if enemy_path_map == nil then
       enemy_path_map = BuildEnemyPathMap()
     end
-    return enemy_path_map[PosIndex(pos)].distance
+    path_info = enemy_path_map[PosIndex(pos)]
+    if path_info == nil then
+      return nil
+    end
+    return path_info.distance
   end
 
   return grid
