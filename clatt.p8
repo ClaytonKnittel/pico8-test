@@ -364,15 +364,15 @@ function MakeEnemy(i)
     y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
 
     local id = TileId.ENEMY + (time / 4) % 2
-    local flip_x = FALSE
-    local flip_y = FALSE
+    local flip_x = false
+    local flip_y = false
     if enemy.direction == Direction.LEFT then
       id += 16
-      flip_x = TRUE
+      flip_x = true
     elseif enemy.direction == Direction.RIGHT then
       id += 16
     elseif enemy.direction == Direction.UP then
-      flip_y = TRUE
+      flip_y = true
     end
 
     spr(id, x, y, 1, 1, flip_x, flip_y)
