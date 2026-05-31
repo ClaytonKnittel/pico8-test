@@ -385,7 +385,7 @@ function MakeArrow(start_pos, target_pos)
   function arrow.draw()
     local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
     local sprite = arrow_sprite(delta_dir)
-    spr(sprite.id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
+    spr(sprite.id, TILE_WIDTH * (pos.x - 0.5), TILE_WIDTH * (pos.y - 0.5), 1, 1, sprite.flip_x, sprite.flip_y)
   end
 
   function arrow.type_id()
@@ -532,16 +532,23 @@ function MakeArcher(pos)
     local result = {
       should_erase = false,
     }
+    if grid.tile(pos) ~= TypeId.ARCHER then
+      print("pos x="..pos.x..",y="..pos.y, 64, 64)
+      result.should_erase = true
+      return result
+    end
+
+
     frames += 1
 
     if fire_rate_cooldown == 0 then
       -- find target enemy
-      target_enemy = nil
-      target_enemy_distance = 32
+      local target_enemy = nil
+      local target_enemy_distance = 32
       for _, entity in entity_map.entities() do
         if entity.type_id() == TypeId.ENEMY then
-          enemy_pos = entity.pos()
-          enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
+          local enemy_pos = entity.pos()
+          local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
           if enemy_distance < range then
             if enemy_distance < target_enemy_distance then
               target_enemy_distance = enemy_distance
@@ -576,7 +583,10 @@ function MakeArcher(pos)
   end
 
   function archer.pos()
-    return pos
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
   end
 
   return archer
@@ -717,10 +727,12 @@ function UpdateInput()
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
       if added and selected_tower_type == TypeId.ARCHER then
-        archer_pos_x = cursor_pos.x + 0.5
-        archer_pos_y = cursor_pos.y + 0.5
-        archer_pos = {x=archer_pos_x, y=archer_pos_y}
         local function spawn_archer()
+          -- clone cursor_pos since cursor_pos is mutated:
+          local archer_pos = {
+            x = cursor_pos.x,
+            y = cursor_pos.y,
+          }
           return MakeArcher(archer_pos)
         end
         assert(entity_map.try_spawn(spawn_archer))
