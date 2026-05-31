@@ -537,7 +537,7 @@ end
 function MakeArcher(pos)
   local archer = {}
 
-  local range = 20
+  local range = 10
   local fire_rate = 10
   local fire_rate_cooldown = 0
   local frames = 0
@@ -580,6 +580,9 @@ function MakeArcher(pos)
           local enemy_dir = target_enemy.direction()
           local enemy_speed = target_enemy.speed()
 
+          -- Make a guess for where the enemy will be by the time our arrow
+          -- would reach them had we aimed straight for them, and aim for there
+          -- instead.
           local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
           local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
           local to_add = PosScale(DirDelta(enemy_dir), scale)
