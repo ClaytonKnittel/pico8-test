@@ -296,7 +296,11 @@ function MakeGrid()
     if enemy_path_map == nil then
       enemy_path_map = BuildEnemyPathMap()
     end
-    return enemy_path_map[PosIndex(pos)].dir
+    path_info = enemy_path_map[PosIndex(pos)]
+    if path_info == nil then
+      return nil
+    end
+    return path_info.dir
   end
 
   function grid.distance_to_end(pos)
@@ -423,15 +427,15 @@ end
 enemy_hold_map = MakeEnemyHoldMap()
 
 function MakeEnemy()
-  local enemy = {
-    direction = Direction.DOWN,
-    to_tile = START_POS,
-  }
+  local enemy = {}
+
+  local direction = Direction.DOWN
+  local to_tile = START_POS
 
   local MAX_PROGRESS = 16
   local progress = 0
 
-  enemy_hold_map.occupy(enemy.to_tile)
+  enemy_hold_map.occupy(to_tile)
 
   function enemy.update()
     local result = {
@@ -445,44 +449,44 @@ function MakeEnemy()
 
     progress = 0
 
-    local from_tile = enemy.to_tile
-    local prev_from_tile = PosAfter(from_tile, OppositeDir(enemy.direction))
+    local from_tile = to_tile
+    local prev_from_tile = PosAfter(from_tile, OppositeDir(direction))
 
     if PosEq(from_tile, END_POS) then
-      enemy.direction = Direction.DOWN
+      direction = Direction.DOWN
     elseif PosEq(from_tile, OFFSCREEN_END_POS) then
       result.should_erase = true
       return result
     else
       local dir = grid.enemy_dir_at(from_tile)
       assert(dir ~= nil)
-      enemy.direction = dir
+      direction = dir
     end
 
-    enemy.to_tile = PosAfter(from_tile, enemy.direction)
+    to_tile = PosAfter(from_tile, direction)
 
     enemy_hold_map.vacate(prev_from_tile)
-    enemy_hold_map.occupy(enemy.to_tile)
+    enemy_hold_map.occupy(to_tile)
 
     return result
   end
 
   function enemy.draw()
-    local x = enemy.to_tile.x * TILE_WIDTH
-    local y = enemy.to_tile.y * TILE_WIDTH
-    local delta = DirDelta(enemy.direction)
+    local x = to_tile.x * TILE_WIDTH
+    local y = to_tile.y * TILE_WIDTH
+    local delta = DirDelta(direction)
     x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
     y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
 
     local id = TileSpriteId.ENEMY + (time / 4) % 2
     local flip_x = false
     local flip_y = false
-    if enemy.direction == Direction.LEFT then
+    if direction == Direction.LEFT then
       id += 16
       flip_x = true
-    elseif enemy.direction == Direction.RIGHT then
+    elseif direction == Direction.RIGHT then
       id += 16
-    elseif enemy.direction == Direction.UP then
+    elseif direction == Direction.UP then
       flip_y = true
     end
 
