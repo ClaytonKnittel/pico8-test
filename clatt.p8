@@ -46,11 +46,6 @@ TileType = {
 
 selected_tower = TileType.WALL
 
-Towers = {
-  WALL = true,
-  ARCHER = true,
-}
-
 time = 0
 
 cursor_pos = {
