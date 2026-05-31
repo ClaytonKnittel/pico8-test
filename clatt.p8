@@ -208,6 +208,7 @@ function MakeGrid()
     queue.push({
       pos = END_POS,
       dir = Direction.DOWN,
+      distance = 0,
     })
     local path_map = {}
 
@@ -220,7 +221,10 @@ function MakeGrid()
       local index = PosIndex(item.pos)
 
       if path_map[index] == nil then
-        path_map[index] = item.dir
+        path_map[index] = {
+          dir = item.dir,
+          distance = item.distance,
+        }
 
         for _, dir in pairs(Direction) do
           local next_pos = PosAfter(item.pos, dir)
@@ -228,6 +232,7 @@ function MakeGrid()
             queue.push({
               pos = next_pos,
               dir = OppositeDir(dir),
+              distance = item.distance + 1,
             })
           end
         end
@@ -291,7 +296,14 @@ function MakeGrid()
     if enemy_path_map == nil then
       enemy_path_map = BuildEnemyPathMap()
     end
-    return enemy_path_map[PosIndex(pos)]
+    return enemy_path_map[PosIndex(pos)].dir
+  end
+
+  function grid.distance_to_end(pos)
+    if enemy_path_map == nil then
+      enemy_path_map = BuildEnemyPathMap()
+    end
+    return enemy_path_map[PosIndex(pos)].distance
   end
 
   return grid
