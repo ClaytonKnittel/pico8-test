@@ -16,29 +16,38 @@ TILE_WIDTH = 8
 WORLD_WIDTH = 16
 WORLD_HEIGHT = 16
 
-local Direction = {
+Direction = {
   LEFT = 0,
   RIGHT = 1,
   UP = 2,
   DOWN = 3,
 }
 
-local TileId = {
+TileSpriteId = {
   WALL = 0,
   ENEMY = 2,
   CURSOR = 4,
   EXIT = 6,
   ENTRANCE = 7,
+  ARCHER = 8,
 }
 
-local TileType = {
+TileType = {
   EMPTY = 0,
   WALL = 1,
   EXIT = 2,
   ENTRANCE = 3,
   -- A phony tile for enemies to "reserve", prevenging other tiles from being
-  -- placed.
+  -- placed. --clayDawg
   ENEMY_HOLD = 4,
+  ARCHER = 5,
+}
+
+SELECTED_TOWER = WALL
+
+Towers = {
+  WALL = true,
+  ARCHER = true,
 }
 
 time = 0
@@ -363,7 +372,7 @@ function MakeEnemy(i)
     x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
     y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
 
-    local id = TileId.ENEMY + (time / 4) % 2
+    local id = TileSpriteId.ENEMY + (time / 4) % 2
     local flip_x = false
     local flip_y = false
     if enemy.direction == Direction.LEFT then
@@ -445,21 +454,34 @@ function UpdateCursor()
     cursor_pos.y = min(cursor_pos.y + 1, 15)
   end
 
+  -- Place tower
   if Pressed(BTN_Z) then
-    local wall_type = grid.tile(cursor_pos)
-    if wall_type == TileType.EMPTY then
-      grid.try_set_tile(cursor_pos, TileType.WALL)
-    elseif wall_type == TileType.WALL then
+    local grid_tile_type = grid.tile(cursor_pos)
+    local selected_tower_type = TileType.SELECTED_TOWER
+
+    if grid_tile_type == TileType.EMPTY then
+      grid.try_set_tile(cursor_pos, selected_tower_type)
+    elseif grid_tile_type == selected_tower_type then
       grid.try_set_tile(cursor_pos, TileType.EMPTY)
     end
   end
+
+  -- Scroll to next tower option
+  if Pressed(BTN_X) then
+    local selected_type = TileType.SELECTED_TOWER
+    -- increment type to next tower
+    repeat
+      selected_type = (selected_type + 1) % #TileType
+    until Towers.selected_type
+    SELECTED_TOWER = selected_type
+  end 
 end
 
 function DrawCursor()
   local i = (time / 15) % 2
   local x = cursor_pos.x * TILE_WIDTH
   local y = cursor_pos.y * TILE_WIDTH
-  spr(TileId.CURSOR + i, x, y)
+  spr(TileSpriteId.CURSOR + i, x, y)
 end
 
 function DrawGrid()
@@ -468,11 +490,11 @@ function DrawGrid()
       local tile = grid.tile({ x = x, y = y })
       local id
       if tile == TileType.WALL then
-        id = TileId.WALL + (x + y) % 2
+        id = TileSpriteId.WALL + (x + y) % 2
       elseif tile == TileType.ENTRANCE then
-        id = TileId.ENTRANCE
+        id = TileSpriteId.ENTRANCE
       elseif tile == TileType.EXIT then
-        id = TileId.EXIT
+        id = TileSpriteId.EXIT
       elseif tile == TileType.ENEMY_HOLD then
         id = 36
       else
@@ -520,6 +542,7 @@ end
 function _update()
   UpdateCursor()
   UpdateEnemies()
+  UpdateTowers()
   time += 1
 end
 
