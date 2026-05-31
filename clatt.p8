@@ -30,6 +30,7 @@ TileSpriteId = {
   EXIT = 6,
   ENTRANCE = 7,
   ARCHER = 8,
+  ARROW = 9,
 }
 
 TileType = {
@@ -135,6 +136,35 @@ function EnemyCanOccupyPos(pos)
       or tile == TileType.ENTRANCE
       or tile == TileType.EXIT
       or tile == TileType.ENEMY_HOLD
+end
+
+function PosAdd(pos1, pos2)
+  return {
+    x = pos1.x + pos2.x,
+    y = pos1.y + pos2.y,
+  }
+end
+
+function PosSub(pos1, pos2)
+  return {
+    x = pos1.x - pos2.x,
+    y = pos1.y - pos2.y,
+  }
+end
+
+function PosScale(pos, scale)
+  return {
+    x = pos.x * scale,
+    y = pos.y * scale,
+  }
+end
+
+function PosMagnitude(pos)
+  return sqrt(pos.x * pos.x + pos.y * pos.y)
+end
+
+function PosNormalize(pos)
+  return PosScale(pos, 1 / PosMagnitude(pos))
 end
 
 function MakeQueue()
@@ -274,6 +304,71 @@ end
 
 grid = MakeGrid()
 
+function MakeArrow(start_pos, target_pos)
+  local arrow = {}
+
+  local dt = 0
+
+  local delta = PosSub(target_pos, start_pos)
+  local distance = PosMagnitude(delta)
+  local delta_dir = PosNormalize(delta)
+
+  function arrow.update()
+    local result = {
+      should_erase = false,
+    }
+
+    if dt > distance then
+      result.should_erase = true
+      return result
+    end
+
+    dt += 1
+    return result
+  end
+
+  -- Not local since it does not capture anything
+  function arrow_sprite(dir)
+    local flip_x = false
+    local flip_y = false
+    local dx = dir.x
+    local dy = dir.y
+    if dx < 0 then
+      dx = -dx
+      flip_x = true
+    end
+    if dy < 0 then
+      dy = -dy
+      flip_y = true
+    end
+
+    local id
+    if dy < 0.256 * dx then
+      id = TileId.ARROW
+    elseif dy < 0.666 * dx then
+      id = TileId.ARROW + 1
+    elseif dx < 0.256 * dy then
+      id = TileId.ARROW + 3
+    else
+      id = TileId.ARROW + 2
+    end
+
+    return {
+      id = id,
+      flip_x = flip_x,
+      flip_y = flip_y,
+    }
+  end
+
+  function arrow.draw()
+    local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
+    local sprite = arrow_sprite(delta_dir)
+    spr(sprite.id, pos.x, pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
+  end
+
+  return arrow
+end
+
 function MakeEnemyHoldMap()
   local enemy_hold_map = {}
 
@@ -320,7 +415,7 @@ end
 
 enemy_hold_map = MakeEnemyHoldMap()
 
-function MakeEnemy(i)
+function MakeEnemy()
   local enemy = {
     direction = Direction.DOWN,
     to_tile = START_POS,
@@ -390,41 +485,41 @@ function MakeEnemy(i)
   return enemy
 end
 
-function MakeEnemyMap()
-  enemy_map = {}
+function MakeEntityMap()
+  entity_map = {}
   
-  local MAX_ENEMIES = 16
-  local enemies = {}
+  local MAX_ENTITIES = 16
+  local entities = {}
 
-  function enemy_map.try_spawn_at_entrance()
-    for i = 1, MAX_ENEMIES do
-      if enemies[i] == nil then
-        enemies[i] = MakeEnemy(i)
+  function entity_map.try_spawn(make_entity)
+    for i = 1, MAX_ENTITIES do
+      if entities[i] == nil then
+        entities[i] = make_entity()
         return true
       end
     end
     return false
   end
 
-  function enemy_map.update()
-    for i, enemy in pairs(enemies) do
-      local result = enemy.update()
+  function entity_map.update()
+    for i, entity in pairs(entities) do
+      local result = entity.update()
       if result.should_erase then
-        enemies[i] = nil
+        entities[i] = nil
       end
     end
   end
 
-  function enemy_map.draw()
-    for _, enemy in pairs(enemies) do
-      enemy.draw()
+  function entity_map.draw()
+    for _, entity in pairs(entities) do
+      entity.draw()
     end
   end
 
-  return enemy_map
+  return entity_map
 end
 
-enemy_map = MakeEnemyMap()
+entity_map = MakeEntityMap()
 
 function UpdateCursor()
   local FREQ = 4
@@ -528,15 +623,22 @@ function DrawGrid()
 end
 
 function UpdateEnemies()
-  enemy_map.update()
+  entity_map.update()
 
   if time % 100 == 99 then
-    enemy_map.try_spawn_at_entrance()
+    entity_map.try_spawn(MakeEnemy)
+  end
+
+  if time % 10 == 9 then
+    local function SpawnArrow()
+      return MakeArrow({ x = 64, y = 64 }, { x = 64 * (1 + sin(time / 200)), y = 64 * (1 + cos(time / 200)) })
+    end
+    entity_map.try_spawn(SpawnArrow)
   end
 end
 
 function DrawEnemies()
-  enemy_map.draw()
+  entity_map.draw()
 end
 
 function _update()
@@ -562,12 +664,12 @@ Initialize()
 __gfx__
 00000000000000000000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000000000000000000000000
 60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000000000000000000000000000
-666666666666666600600600006006000000000000000000033bb330022882200000000000000000000000000000000000000000000000000000000000000000
-66066086606606600006600000600600700000070000000003bbbb30028888200000000000000000000000000000000000000000000000000000000000000000
-60660686660668660160061001600610700000070000000003bbbb30028888200000000000000000000000000000000000000000000000000000000000000000
-660660866066086000111100001111000000000000000000033bb330022882200000000000000000000000000000000000000000000000000000000000000000
-60668688668668660000000000000000700000077000000703333330002222000000000000000000000000000000000000000000000000000000000000000000
-66068088608608800000000000000000770770777700007703333330000000000000000000000000000000000000000000000000000000000000000000000000
+666666666666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000000000000000000000000000
+66066086606606600006600000600600700000070000000003bbbb30028888200555555000000000004000000000400000004000000000000000000000000000
+60660686660668660160061001600610700000070000000003bbbb30028888200044440000444500000440000000400000004000000000000000000000000000
+660660866066086000111100001111000000000000000000033bb330022882200042240000000000000005000000050000005000000000000000000000000000
+60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000000000000000000000000000
+66068088608608800000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
