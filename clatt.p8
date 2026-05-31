@@ -31,10 +31,9 @@ TileSpriteId = {
   ENTRANCE = 7,
   ARCHER = 8,
   ARROW = 9,
-  SPRINKLER = 13,
 }
 
-TileType = {
+TypeId = {
   EMPTY = 0,
   WALL = 1,
   EXIT = 2,
@@ -43,10 +42,10 @@ TileType = {
   -- placed. --clayDawg
   ENEMY_HOLD = 4,
   ARCHER = 5,
-  SPRINKER = 6,
+  ENEMY = 6,
 }
 
-selected_tower = TileType.WALL
+selected_tower = TypeId.WALL
 
 time = 0
 
@@ -129,10 +128,10 @@ end
 
 function EnemyCanOccupyPos(pos)
   local tile = grid.tile(pos)
-  return tile == TileType.EMPTY
-      or tile == TileType.ENTRANCE
-      or tile == TileType.EXIT
-      or tile == TileType.ENEMY_HOLD
+  return tile == TypeId.EMPTY
+      or tile == TypeId.ENTRANCE
+      or tile == TypeId.EXIT
+      or tile == TypeId.ENEMY_HOLD
 end
 
 function PosAdd(pos1, pos2)
@@ -198,12 +197,12 @@ function MakeGrid()
 
   for y = 0, WORLD_HEIGHT - 1 do
     for x = 0, WORLD_WIDTH - 1 do
-      tiles[Index(x, y)] = TileType.EMPTY
+      tiles[Index(x, y)] = TypeId.EMPTY
     end
   end
 
-  tiles[PosIndex(START_POS)] = TileType.ENTRANCE
-  tiles[PosIndex(END_POS)] = TileType.EXIT
+  tiles[PosIndex(START_POS)] = TypeId.ENTRANCE
+  tiles[PosIndex(END_POS)] = TypeId.EXIT
 
   local function BuildEnemyPathMap()
     local queue = MakeQueue()
@@ -277,21 +276,21 @@ function MakeGrid()
   function grid.place_enemy_hold(pos)
     local index = PosIndex(pos)
     local tile = tiles[index]
-    if tile == TileType.ENTRANCE or tile == TileType.EXIT then
+    if tile == TypeId.ENTRANCE or tile == TypeId.EXIT then
       return
     end
-    assert(tile == TileType.EMPTY)
-    tiles[index] = TileType.ENEMY_HOLD
+    assert(tile == TypeId.EMPTY)
+    tiles[index] = TypeId.ENEMY_HOLD
   end
 
   function grid.remove_enemy_hold(pos)
     local index = PosIndex(pos)
     local tile = tiles[index]
-    if tile == TileType.ENTRANCE or tile == TileType.EXIT then
+    if tile == TypeId.ENTRANCE or tile == TypeId.EXIT then
       return
     end
-    assert(tile == TileType.ENEMY_HOLD)
-    tiles[index] = TileType.EMPTY
+    assert(tile == TypeId.ENEMY_HOLD)
+    tiles[index] = TypeId.EMPTY
   end
 
   function grid.enemy_dir_at(pos)
@@ -373,6 +372,10 @@ function MakeArrow(start_pos, target_pos)
     local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
     local sprite = arrow_sprite(delta_dir)
     spr(sprite.id, pos.x, pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
+  end
+
+  function arrow.type_id()
+    return TypeId.ARROW
   end
 
   return arrow
@@ -470,12 +473,6 @@ function MakeEnemy()
   end
 
   function enemy.draw()
-    local x = enemy.to_tile.x * TILE_WIDTH
-    local y = enemy.to_tile.y * TILE_WIDTH
-    local delta = DirDelta(enemy.direction)
-    x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
-    y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
-
     local id = TileSpriteId.ENEMY + (time / 4) % 2
     local flip_x = false
     local flip_y = false
@@ -488,10 +485,90 @@ function MakeEnemy()
       flip_y = true
     end
 
-    spr(id, x, y, 1, 1, flip_x, flip_y)
+    local pos = enemy.pos()
+    spr(id, pos.x, pos.y, 1, 1, flip_x, flip_y)
+  end
+
+  function enemy.type_id()
+    return TypeId.ENEMY
+  end
+
+  function enemy.pos()
+    local x = enemy.to_tile.x * TILE_WIDTH
+    local y = enemy.to_tile.y * TILE_WIDTH
+    local delta = DirDelta(enemy.direction)
+    x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
+    y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
+    return {x=x, y=y}
   end
 
   return enemy
+end
+
+function MakeArcher(pos)
+  local archer = {
+  }
+
+  local range = 4
+  local fire_rate = 10
+  local fire_rate_cooldown = 0
+  local frames = 0
+  local espp_rate = 0.15 -- IRS max
+
+  function archer.update()
+    local result = {
+      should_erase = false,
+    }
+    frames += 1
+
+    if fire_rate_cooldown == 0 then
+      -- find target enemy
+      target_enemy = nil
+      target_enemy_distance = 32
+      for _, entity in entity_map.entities() do
+        if entity.type_id() == TypeId.ENEMY then
+          enemy_pos = entity.pos()
+          enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
+          if enemy_distance < range then
+            if enemy_distance < target_enemy_distance then
+              target_enemy_distance = enemy_distance
+              target_enemy = entity
+            end
+          end
+        end
+      end 
+
+      -- brrrrr
+      if target_enemy ~= nil then
+        print("here", 10, 10)
+        local function spawn_arrow()
+          return MakeArrow(archer.pos(), target_enemy.pos())
+        end
+        entity_map.try_spawn(spawn_arrow)
+
+        fire_rate_cooldown = fire_rate
+      end
+    else
+      fire_rate_cooldown -= 1
+    end
+
+
+    return result
+  end
+
+  function archer.draw()
+    -- pass
+  end
+
+  function archer.type_id()
+    return TypeId.ARCHER
+  end
+
+  function archer.pos()
+    return pos
+  end
+
+  return archer
 end
 
 function MakeEntityMap()
@@ -500,10 +577,16 @@ function MakeEntityMap()
   local MAX_ENTITIES = 16
   local entities = {}
 
+  function entity_map.entities()
+    return pairs(entities)
+  end
+
   function entity_map.try_spawn(make_entity)
     for i = 1, MAX_ENTITIES do
       if entities[i] == nil then
         entities[i] = make_entity()
+        assert(entities[i] ~= nil)
+        assert(type(entities[i]) == "table")
         return true
       end
     end
@@ -530,7 +613,7 @@ end
 
 entity_map = MakeEntityMap()
 
-function UpdateCursor()
+function UpdateInput()
   local FREQ = 4
 
   for i, timer in ipairs(button_timers) do
@@ -563,25 +646,30 @@ function UpdateCursor()
     local grid_tile_type = grid.tile(cursor_pos)
     local selected_tower_type = selected_tower
 
-    if grid_tile_type == TileType.EMPTY then
+    if grid_tile_type == TypeId.EMPTY then
       grid.try_set_tile(cursor_pos, selected_tower_type)
     elseif grid_tile_type == selected_tower_type then
-      grid.try_set_tile(cursor_pos, TileType.EMPTY)
+      grid.try_set_tile(cursor_pos, TypeId.EMPTY)
+      if selected_tower_type == TypeId.ARCHER then
+        archer_pos_x = cursor_pos.x + TILE_WIDTH / 2
+        archer_pos_y = cursor_pos.y + TILE_WIDTH / 2
+        archer_pos = {x=archer_pos_x, y=archer_pos_y}
+        local function spawn_archer()
+          return MakeArcher(archer_pos)
+        end
+        entity_map.try_spawn(spawn_archer)
+      end
     end
   end
 
   -- Scroll to next tower option
   if Pressed(BTN_X) then
-    if selected_tower == TileType.WALL then
-      selected_tower = TileType.ARCHER
-    elseif
-      assert(selected_tower == TileType.ARCHER)
-      selected_tower = TileType.WALL
-    elseif
-      assert(selected_tower == TileType.ARCHER)
-      selected_tower = TileType.SPRINKER
+    if selected_tower == TypeId.WALL then
+      selected_tower = TypeId.ARCHER
+    else
+      assert(selected_tower == TypeId.ARCHER)
+      selected_tower = TypeId.WALL
     end
-  end
   end 
 end
 
@@ -597,18 +685,18 @@ function DrawGrid()
     for x = 0, WORLD_WIDTH - 1 do
       local tile = grid.tile({ x = x, y = y })
       local id
-      if tile == TileType.WALL then
+      if tile == TypeId.WALL then
         id = TileSpriteId.WALL + (x + y) % 2
-      elseif tile == TileType.ENTRANCE then
+      elseif tile == TypeId.ENTRANCE then
         id = TileSpriteId.ENTRANCE
-      elseif tile == TileType.EXIT then
+      elseif tile == TypeId.EXIT then
         id = TileSpriteId.EXIT
-      elseif tile == TileType.ARCHER then
+      elseif tile == TypeId.ARCHER then
         id = TileSpriteId.ARCHER
-      elseif tile == TileType.ENEMY_HOLD then
+      elseif tile == TypeId.ENEMY_HOLD then
         id = 36
       else
-        assert(tile == TileType.EMPTY)
+        assert(tile == TypeId.EMPTY)
         local dir = grid.enemy_dir_at({ x = x, y = y })
         if dir == Direction.LEFT then
           id = 32
@@ -650,9 +738,8 @@ function DrawEntities()
 end
 
 function _update()
-  UpdateCursor()
+  UpdateInput()
   UpdateEntities()
-  UpdateTowers()
   time += 1
 end
 
@@ -671,12 +758,12 @@ Initialize()
 
 __gfx__
 00000000000000000000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000000000000000000
-60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000060220600000000000000000
+60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000070220700000000000000000
 666666666666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000002ee2000000000000000000
 66066086606606600006600000600600700000070000000003bbbb3002888820055555500000000000400000000040000000400002e2ee260000000000000000
 60660686660668660160061001600610700000070000000003bbbb3002888820004444000044450000044000000040000000400062ee2e200000000000000000
 660660866066086000111100001111000000000000000000033bb330022882200042240000000000000005000000050000005000002ee2000000000000000000
-60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000060220700000000000000000
+60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000070220700000000000000000
 66068088608608800000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000060000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
