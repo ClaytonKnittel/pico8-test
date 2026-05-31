@@ -130,6 +130,35 @@ function EnemyCanOccupyPos(pos)
       or tile == TileType.ENEMY_HOLD
 end
 
+function PosAdd(pos1, pos2)
+  return {
+    x = pos1.x + pos2.x,
+    y = pos1.y + pos2.y,
+  }
+end
+
+function PosSub(pos1, pos2)
+  return {
+    x = pos1.x - pos2.x,
+    y = pos1.y - pos2.y,
+  }
+end
+
+function PosScale(pos, scale)
+  return {
+    x = pos.x * scale,
+    y = pos.y * scale,
+  }
+end
+
+function PosMagnitude(pos)
+  return sqrt(pos.x * pos.x + pos.y * pos.y)
+end
+
+function PosNormalize(pos)
+  return PosScale(pos, 1 / PosMagnitude(pos))
+end
+
 function MakeQueue()
   local queue = {}
 
@@ -270,6 +299,31 @@ grid = MakeGrid()
 function MakeArrow(start_pos, target_pos)
   local arrow = {}
 
+  local dt = 0
+
+  local delta = PosSub(target_pos, start_pos)
+  local distance = PosMagnitude(delta)
+  local delta_dir = PosNormalize(delta)
+
+  function arrow.update()
+    local result = {
+      should_erase = false,
+    }
+
+    if dt > distance then
+      result.should_erase = true
+      return result
+    end
+
+    dt += 1
+    return result
+  end
+
+  function arrow.draw()
+    local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
+    spr(TileId.ARROW, pos.x, pos.y)
+  end
+
   return arrow
 end
 
@@ -319,7 +373,7 @@ end
 
 enemy_hold_map = MakeEnemyHoldMap()
 
-function MakeEnemy(i)
+function MakeEnemy()
   local enemy = {
     direction = Direction.DOWN,
     to_tile = START_POS,
@@ -398,7 +452,7 @@ function MakeEntityMap()
   function entity_map.try_spawn(make_entity)
     for i = 1, MAX_ENTITIES do
       if entities[i] == nil then
-        entities[i] = make_entity(i)
+        entities[i] = make_entity()
         return true
       end
     end
@@ -518,6 +572,13 @@ function UpdateEnemies()
 
   if time % 100 == 99 then
     entity_map.try_spawn(MakeEnemy)
+  end
+
+  if time % 10 == 9 then
+    local function SpawnArrow()
+      return MakeArrow({ x = 10, y = 100 }, { x = 100, y = 90 })
+    end
+    entity_map.try_spawn(SpawnArrow)
   end
 end
 
