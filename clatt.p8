@@ -2,7 +2,7 @@ pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
 
-DEBUG = false
+DEBUG = true
 DEBUG_DISPLAY_DIR_MAP = false
 
 LEFT = 0
@@ -582,61 +582,62 @@ function MakeArcher(pos)
   return archer
 end
 
-function MakePinwheel(pos)
-  local pinwheel = {}
+-- function MakePinwheel(pos)
+--   local pinwheel = {}
 
-  local range = 10
-  local fire_rate = 5
-  local fire_rate_cooldown = 0
-  local frames = 0
-  local radius = 5
-  local direction_idx = 0
-  local n_directions = 8
+--   local range = 10
+--   local fire_rate = 5
+--   local fire_rate_cooldown = 0
+--   local frames = 0
+--   local radius = 5
+--   local direction_idx = 0
+--   local n_directions = 8
 
-  function pinwheel.update()
-    local result = {
-      should_erase = false,
-    }
-    frames += 1
+--   function pinwheel.update()
+--     local result = {
+--       should_erase = false,
+--     }
+--     frames += 1
 
-    if fire_rate_cooldown == 0 then
-      -- brrrrr
-
+--     if fire_rate_cooldown == 0 then
+--       -- brrrrr
+--       if direction_idx == 0:
+--         target_pos = {x=0, y=-1}
       
 
       
-      target_pos = pinwheel.pos() + target_pos
+--       target_pos = pinwheel.pos() + target_pos
 
 
-      local function spawn_arrow()
-        return MakeArrow(pinwheel.pos(), target_enemy.pos())
-      end
-      entity_map.try_spawn(spawn_arrow)
+--       local function spawn_arrow()
+--         return MakeArrow(pinwheel.pos(), target_enemy.pos())
+--       end
+--       entity_map.try_spawn(spawn_arrow)
 
-      fire_rate_cooldown = fire_rate
+--       fire_rate_cooldown = fire_rate
 
-      direction_idx = (direction_idx + 1) % n_directions
-    else
-      fire_rate_cooldown -= 1
-    end
+--       direction_idx = (direction_idx + 1) % n_directions
+--     else
+--       fire_rate_cooldown -= 1
+--     end
 
-    return result
-  end
+--     return result
+--   end
 
-  function pinwheel.draw()
-    -- pass
-  end
+--   function pinwheel.draw()
+--     -- pass
+--   end
 
-  function pinwheel.type_id()
-    return TypeId.PINWHEEL
-  end
+--   function pinwheel.type_id()
+--     return TypeId.PINWHEEL
+--   end
 
-  function pinwheel.pos()
-    return pos
-  end
+--   function pinwheel.pos()
+--     return pos
+--   end
 
-  return pinwheel
-end
+--   return pinwheel
+-- end
 
 function MakeEntityMap()
   entity_map = {}
