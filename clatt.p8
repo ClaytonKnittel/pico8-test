@@ -619,28 +619,21 @@ function DrawGrid()
   end
 end
 
-function UpdateEnemies()
+function UpdateEntities()
   entity_map.update()
 
   if time % 100 == 99 then
     entity_map.try_spawn(MakeEnemy)
   end
-
-  if time % 10 == 9 then
-    local function SpawnArrow()
-      return MakeArrow({ x = 64, y = 64 }, { x = 64 * (1 + sin(time / 200)), y = 64 * (1 + cos(time / 200)) })
-    end
-    entity_map.try_spawn(SpawnArrow)
-  end
 end
 
-function DrawEnemies()
+function DrawEntities()
   entity_map.draw()
 end
 
 function _update()
   UpdateCursor()
-  UpdateEnemies()
+  UpdateEntities()
   -- UpdateTowers()
   time += 1
 end
@@ -648,7 +641,7 @@ end
 function _draw()
   cls(0)
   DrawGrid()
-  DrawEnemies()
+  DrawEntities()
   DrawCursor()
 end
 
