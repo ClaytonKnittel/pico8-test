@@ -504,7 +504,7 @@ function MakeEnemy()
   function enemy.pos()
     local x = to_tile.x * TILE_WIDTH
     local y = to_tile.y * TILE_WIDTH
-    local delta = DirDelta(enemy.direction)
+    local delta = DirDelta(direction)
     x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
     y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
     return {x=x, y=y}
