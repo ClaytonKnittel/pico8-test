@@ -31,6 +31,7 @@ TileSpriteId = {
   ENTRANCE = 7,
   ARCHER = 8,
   ARROW = 9,
+  PINWHEEL = 13
 }
 
 TypeId = {
@@ -43,6 +44,7 @@ TypeId = {
   ENEMY_HOLD = 4,
   ARCHER = 5,
   ENEMY = 6,
+  PINWHEEL=7
 }
 
 selected_tower = TypeId.WALL
@@ -268,8 +270,10 @@ function MakeGrid()
     local new_enemy_path_map = BuildEnemyPathMap()
     if AllTilesReachableInPathMap(new_enemy_path_map) then
       enemy_path_map = new_enemy_path_map
+      return true
     else
       tiles[index] = prev_tile
+      return false
     end
   end
 
@@ -324,6 +328,7 @@ function MakeArrow(start_pos, target_pos)
   local arrow = {}
 
   local dt = 0
+  local SPEED = 0.25
 
   local delta = PosSub(target_pos, start_pos)
   local distance = PosMagnitude(delta)
@@ -339,7 +344,7 @@ function MakeArrow(start_pos, target_pos)
       return result
     end
 
-    dt += 1
+    dt += SPEED
     return result
   end
 
@@ -379,7 +384,7 @@ function MakeArrow(start_pos, target_pos)
   function arrow.draw()
     local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
     local sprite = arrow_sprite(delta_dir)
-    spr(sprite.id, pos.x, pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
+    spr(sprite.id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
   end
 
   function arrow.type_id()
@@ -494,7 +499,7 @@ function MakeEnemy()
     end
 
     local pos = enemy.pos()
-    spr(id, pos.x, pos.y, 1, 1, flip_x, flip_y)
+    spr(id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, flip_x, flip_y)
   end
 
   function enemy.type_id()
@@ -502,11 +507,11 @@ function MakeEnemy()
   end
 
   function enemy.pos()
-    local x = to_tile.x * TILE_WIDTH
-    local y = to_tile.y * TILE_WIDTH
+    local x = to_tile.x
+    local y = to_tile.y
     local delta = DirDelta(direction)
-    x -= delta.dx * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
-    y -= delta.dy * (MAX_PROGRESS - progress - 1) * TILE_WIDTH / MAX_PROGRESS
+    x -= delta.dx * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
+    y -= delta.dy * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
     return {x=x, y=y}
   end
 
@@ -514,10 +519,9 @@ function MakeEnemy()
 end
 
 function MakeArcher(pos)
-  local archer = {
-  }
+  local archer = {}
 
-  local range = 4
+  local range = 10
   local fire_rate = 10
   local fire_rate_cooldown = 0
   local frames = 0
@@ -548,7 +552,6 @@ function MakeArcher(pos)
 
       -- brrrrr
       if target_enemy ~= nil then
-        print("here", 10, 10)
         local function spawn_arrow()
           return MakeArrow(archer.pos(), target_enemy.pos())
         end
@@ -559,7 +562,6 @@ function MakeArcher(pos)
     else
       fire_rate_cooldown -= 1
     end
-
 
     return result
   end
@@ -579,10 +581,66 @@ function MakeArcher(pos)
   return archer
 end
 
+function MakePinwheel(pos)
+  local pinwheel = {}
+
+  local range = 10
+  local fire_rate = 5
+  local fire_rate_cooldown = 0
+  local frames = 0
+  local radius = 5
+  local direction_idx = 0
+  local n_directions = 8
+
+  function pinwheel.update()
+    local result = {
+      should_erase = false,
+    }
+    frames += 1
+
+    if fire_rate_cooldown == 0 then
+      -- brrrrr
+
+      
+
+      
+      target_pos = pinwheel.pos() + target_pos
+
+
+      local function spawn_arrow()
+        return MakeArrow(pinwheel.pos(), target_enemy.pos())
+      end
+      entity_map.try_spawn(spawn_arrow)
+
+      fire_rate_cooldown = fire_rate
+
+      direction_idx = (direction_idx + 1) % n_directions
+    else
+      fire_rate_cooldown -= 1
+    end
+
+    return result
+  end
+
+  function pinwheel.draw()
+    -- pass
+  end
+
+  function pinwheel.type_id()
+    return TypeId.PINWHEEL
+  end
+
+  function pinwheel.pos()
+    return pos
+  end
+
+  return pinwheel
+end
+
 function MakeEntityMap()
   entity_map = {}
   
-  local MAX_ENTITIES = 16
+  local MAX_ENTITIES = 512
   local entities = {}
 
   function entity_map.entities()
@@ -655,18 +713,18 @@ function UpdateInput()
     local selected_tower_type = selected_tower
 
     if grid_tile_type == TypeId.EMPTY then
-      grid.try_set_tile(cursor_pos, selected_tower_type)
-    elseif grid_tile_type == selected_tower_type then
-      grid.try_set_tile(cursor_pos, TypeId.EMPTY)
-      if selected_tower_type == TypeId.ARCHER then
-        archer_pos_x = cursor_pos.x + TILE_WIDTH / 2
-        archer_pos_y = cursor_pos.y + TILE_WIDTH / 2
+      local added = grid.try_set_tile(cursor_pos, selected_tower_type)
+      if added and selected_tower_type == TypeId.ARCHER then
+        archer_pos_x = cursor_pos.x + 0.5
+        archer_pos_y = cursor_pos.y + 0.5
         archer_pos = {x=archer_pos_x, y=archer_pos_y}
         local function spawn_archer()
           return MakeArcher(archer_pos)
         end
-        entity_map.try_spawn(spawn_archer)
+        assert(entity_map.try_spawn(spawn_archer))
       end
+    elseif grid_tile_type == selected_tower_type then
+      assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
     end
   end
 
@@ -746,13 +804,13 @@ function DrawEntities()
 end
 
 function _update()
+  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
-  cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
