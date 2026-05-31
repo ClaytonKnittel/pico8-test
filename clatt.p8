@@ -3,6 +3,7 @@ version 43
 __lua__
 
 DEBUG = false
+DEBUG_DISPLAY_DIR_MAP = false
 
 LEFT = 0
 RIGHT = 1
@@ -628,7 +629,7 @@ function DrawGrid()
         -- goto continue
       end
 
-      if not DEBUG and id >= 32 then
+      if not DEBUG_DISPLAY_DIR_MAP and id >= 32 then
         goto continue
       end
 
@@ -651,6 +652,17 @@ function DrawEntities()
   entity_map.draw()
 end
 
+function DrawDebugStats()
+  if not DEBUG then
+    return
+  end
+
+  local mem = stat(0) * 100 / 2048
+  print("mem%: "..mem.."%", 96, 0)
+  local cpu = stat(1) * 100
+  print("cpu%: "..cpu.."%", 96, 8)
+end
+
 function _update()
   UpdateCursor()
   UpdateEntities()
@@ -663,6 +675,7 @@ function _draw()
   DrawGrid()
   DrawEntities()
   DrawCursor()
+  DrawDebugStats()
 end
 
 function Initialize()
