@@ -108,16 +108,16 @@ function DirDelta(dir)
     dy = 1
   end
   return {
-    dx = dx,
-    dy = dy,
+    x = dx,
+    y = dy,
   }
 end
 
 function PosAfter(pos, dir)
   local delta = DirDelta(dir)
   return {
-    x = pos.x + delta.dx,
-    y = pos.y + delta.dy,
+    x = pos.x + delta.x,
+    y = pos.y + delta.y,
   }
 end
 
@@ -325,11 +325,12 @@ end
 
 grid = MakeGrid()
 
+ARROW_SPEED = 0.25
+
 function MakeArrow(start_pos, target_pos)
   local arrow = {}
 
   local dt = 0
-  local SPEED = 0.25
 
   local delta = PosSub(target_pos, start_pos)
   local distance = PosMagnitude(delta)
@@ -345,7 +346,7 @@ function MakeArrow(start_pos, target_pos)
       return result
     end
 
-    dt += SPEED
+    dt += ARROW_SPEED
     return result
   end
 
@@ -484,6 +485,15 @@ function MakeEnemy()
     return result
   end
 
+  local function corner_pos()
+    local x = to_tile.x
+    local y = to_tile.y
+    local delta = DirDelta(direction)
+    x -= delta.x * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
+    y -= delta.y * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
+    return { x = x, y = y }
+  end
+
   function enemy.draw()
     local id = TileSpriteId.ENEMY + (time / 4) % 2
     local flip_x = false
@@ -497,7 +507,7 @@ function MakeEnemy()
       flip_y = true
     end
 
-    local pos = enemy.pos()
+    local pos = corner_pos()
     spr(id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, flip_x, flip_y)
   end
 
@@ -506,12 +516,17 @@ function MakeEnemy()
   end
 
   function enemy.pos()
-    local x = to_tile.x
-    local y = to_tile.y
-    local delta = DirDelta(direction)
-    x -= delta.dx * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    y -= delta.dy * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    return {x=x, y=y}
+    local pos = corner_pos()
+    return { x = pos.x + 0.5, y = pos.y + 0.5 }
+  end
+
+  function enemy.direction()
+    return direction
+  end
+
+  -- Returns how many tiles the enemy moves per game tick.
+  function enemy.speed()
+    return 1 / MAX_PROGRESS
   end
 
   return enemy
@@ -535,7 +550,6 @@ function MakeArcher(pos)
       return result
     end
 
-
     frames += 1
 
     if fire_rate_cooldown == 0 then
@@ -553,12 +567,26 @@ function MakeArcher(pos)
             end
           end
         end
-      end 
+      end
 
       -- brrrrr
       if target_enemy ~= nil then
         local function spawn_arrow()
-          return MakeArrow(archer.pos(), target_enemy.pos())
+          local archer_pos = archer.pos()
+
+          local target_pos = target_enemy.pos()
+          local enemy_dir = target_enemy.direction()
+          local enemy_speed = target_enemy.speed()
+
+          -- Make a guess for where the enemy will be by the time our arrow
+          -- would reach them had we aimed straight for them, and aim for there
+          -- instead.
+          local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
+          local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
+          local to_add = PosScale(DirDelta(enemy_dir), scale)
+          target_pos = PosAdd(target_pos, to_add)
+
+          return MakeArrow(archer_pos, target_pos)
         end
         entity_map.try_spawn(spawn_arrow)
 
@@ -650,7 +678,7 @@ end
 
 function MakeEntityMap()
   entity_map = {}
-  
+
   local MAX_ENTITIES = 512
   local entities = {}
 
@@ -757,7 +785,7 @@ function UpdateInput()
     else
       selected_tower = TypeId.WALL
     end
-  end 
+  end
 end
 
 function DrawCursor()
