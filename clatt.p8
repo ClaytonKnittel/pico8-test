@@ -73,18 +73,12 @@ OFFSCREEN_END_POS = {
   y = WORLD_HEIGHT,
 }
 
-function OppositeDir(dir)
-  if dir == Direction.LEFT then
-    return Direction.RIGHT
-  elseif dir == Direction.RIGHT then
-    return Direction.LEFT
-  elseif dir == Direction.UP then
-    return Direction.DOWN
-  else
-    assert(dir == Direction.DOWN)
-    return Direction.UP
-  end
-end
+OPPOSITE_DIR = {
+  [Direction.LEFT] = Direction.RIGHT,
+  [Direction.RIGHT] = Direction.LEFT,
+  [Direction.UP] = Direction.DOWN,
+  [Direction.DOWN] = Direction.UP,
+}
 
 function Index(x, y)
   return x + y * WORLD_WIDTH + 1
@@ -129,12 +123,16 @@ function PosInBounds(pos)
   return pos.x >= 0 and pos.x < WORLD_WIDTH and pos.y >= 0 and pos.y < WORLD_HEIGHT
 end
 
+OCCUPIABLE_TILES = {
+  [TypeId.EMPTY] = true,
+  [TypeId.ENTRANCE] = true,
+  [TypeId.EXIT] = true,
+  [TypeId.ENEMY_HOLD] = true,
+}
+
 function EnemyCanOccupyPos(pos)
   local tile = grid.tile(pos)
-  return tile == TypeId.EMPTY
-      or tile == TypeId.ENTRANCE
-      or tile == TypeId.EXIT
-      or tile == TypeId.ENEMY_HOLD
+  return OCCUPIABLE_TILES[tile]
 end
 
 function PosAdd(pos1, pos2)
@@ -166,37 +164,11 @@ function PosNormalize(pos)
   return PosScale(pos, 1 / PosMagnitude(pos))
 end
 
-function MakeQueue()
-  local queue = {}
-
-  local front = 0
-  local back = 0
-
-  function queue.pop()
-    assert(front <= back)
-    if front == back then
-      return nil
-    else
-      result = queue[front]
-      queue[front] = nil
-      front += 1
-      return result
-    end
-  end
-
-  function queue.push(item)
-    queue[back] = item
-    back += 1
-  end
-
-  return queue
-end
-
 function MakeGrid()
   local grid = {}
 
   local tiles = {}
-  local enemy_path_map = nil
+  local enemy_dir_map, enemy_distance_map
 
   for y = 0, WORLD_HEIGHT - 1 do
     for x = 0, WORLD_WIDTH - 1 do
@@ -208,69 +180,85 @@ function MakeGrid()
   tiles[PosIndex(END_POS)] = TypeId.EXIT
 
   local function BuildEnemyPathMap()
-    local queue = MakeQueue()
-    queue.push({
-      pos = END_POS,
-      dir = Direction.DOWN,
-      distance = 0,
-    })
-    local path_map = {}
+    local queue = {}
+    local q_front = 1
+    local q_back = 1
 
-    while true do
-      local item = queue.pop()
-      if item == nil then
-        break
-      end
+    -- Cache math functions we use
+    local abs = abs
 
-      local index = PosIndex(item.pos)
+    -- Layout: pos, direction, distance
+    queue[q_front] = PosIndex(END_POS)
+    queue[q_front + 1] = Direction.DOWN
+    queue[q_front + 2] = 0
+    q_back += 3
 
-      if path_map[index] == nil then
-        path_map[index] = {
-          dir = item.dir,
-          distance = item.distance,
-        }
+    -- We use some bit tricks assuming this is the world width
+    assert(WORLD_WIDTH == 16)
+    local grid_size = WORLD_WIDTH * WORLD_HEIGHT
+
+    local pos_after_map = {
+      [Direction.LEFT] = -1,
+      [Direction.RIGHT] = 1,
+      [Direction.UP] = -WORLD_WIDTH,
+      [Direction.DOWN] = WORLD_WIDTH,
+    }
+
+    local dir_map = {}
+    local distance_map = {}
+
+    while q_front < q_back do
+      local pos_index = queue[q_front]
+      local dir = queue[q_front + 1]
+      local distance = queue[q_front + 2]
+      q_front += 3
+
+      if dir_map[pos_index] == nil then
+        dir_map[pos_index] = dir
+        distance_map[pos_index] = distance
 
         for dir = 0, 3 do
-          local next_pos = PosAfter(item.pos, dir)
-          if PosInBounds(next_pos) and EnemyCanOccupyPos(next_pos) then
-            queue.push({
-              pos = next_pos,
-              dir = OppositeDir(dir),
-              distance = item.distance + 1,
-            })
+          local next_pos = pos_index + pos_after_map[dir]
+          -- Check that next_pos is in bounds:
+          if abs(((next_pos - 1) & 0xf) - ((pos_index - 1) & 0xf)) <= 1
+              and next_pos >= 1 and next_pos <= grid_size then
+            local tile = tiles[next_pos]
+            if OCCUPIABLE_TILES[tile] then
+              queue[q_back] = next_pos
+              queue[q_back + 1] = OPPOSITE_DIR[dir]
+              queue[q_back + 2] = distance + 1
+              q_back += 3
+            end
           end
         end
       end
     end
 
-    return path_map
+    return dir_map, distance_map
   end
 
   function grid.tile(pos)
     return tiles[PosIndex(pos)]
   end
 
-  local function AllTilesReachableInPathMap(path_map)
+  local function AllTilesReachableInPathMap(dir_map)
     for tile_index in enemy_hold_map.occupied_tiles() do
-      if path_map[tile_index] == nil then
+      if dir_map[tile_index] == nil then
         return false
       end
     end
 
-    if path_map[PosIndex(START_POS)] == nil then
-      return false
-    end
-
-    return true
+    return dir_map[PosIndex(START_POS)] ~= nil
   end
 
   function grid.try_set_tile(pos, tile)
     local index = PosIndex(pos)
     local prev_tile = tiles[index]
     tiles[index] = tile
-    local new_enemy_path_map = BuildEnemyPathMap()
-    if AllTilesReachableInPathMap(new_enemy_path_map) then
-      enemy_path_map = new_enemy_path_map
+    local dir_map, distance_map = BuildEnemyPathMap()
+    if AllTilesReachableInPathMap(dir_map) then
+      enemy_dir_map = dir_map
+      enemy_distance_map = distance_map
       return true
     else
       tiles[index] = prev_tile
@@ -299,25 +287,17 @@ function MakeGrid()
   end
 
   function grid.enemy_dir_at(pos)
-    if enemy_path_map == nil then
-      enemy_path_map = BuildEnemyPathMap()
+    if enemy_dir_map == nil then
+      enemy_dir_map, enemy_distance_map = BuildEnemyPathMap()
     end
-    path_info = enemy_path_map[PosIndex(pos)]
-    if path_info == nil then
-      return nil
-    end
-    return path_info.dir
+    return enemy_dir_map[PosIndex(pos)]
   end
 
   function grid.distance_to_end(pos)
-    if enemy_path_map == nil then
-      enemy_path_map = BuildEnemyPathMap()
+    if enemy_dir_map == nil then
+      enemy_dir_map, enemy_distance_map = BuildEnemyPathMap()
     end
-    path_info = enemy_path_map[PosIndex(pos)]
-    if path_info == nil then
-      return nil
-    end
-    return path_info.distance
+    return enemy_distance_map[PosIndex(pos)]
   end
 
   return grid
@@ -466,7 +446,7 @@ function MakeEnemy()
     progress = 0
 
     local from_tile = to_tile
-    local prev_from_tile = PosAfter(from_tile, OppositeDir(direction))
+    local prev_from_tile = PosAfter(from_tile, OPPOSITE_DIR[direction])
 
     if PosEq(from_tile, END_POS) then
       direction = Direction.DOWN
