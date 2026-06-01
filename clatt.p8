@@ -230,7 +230,7 @@ function MakeGrid()
           distance = item.distance,
         }
 
-        for _, dir in pairs(Direction) do
+        for dir = 0, 3 do
           local next_pos = PosAfter(item.pos, dir)
           if PosInBounds(next_pos) and EnemyCanOccupyPos(next_pos) then
             queue.push({
