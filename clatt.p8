@@ -558,7 +558,7 @@ function MakeArcher(pos)
       -- find target enemy
       local target_enemy = nil
       local target_enemy_distance = 32
-      for _, entity in entity_map.entities() do
+      for entity in entity_map.entities() do
         if entity.type_id() == TypeId.ENEMY then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
@@ -573,24 +573,22 @@ function MakeArcher(pos)
 
       -- brrrrr
       if target_enemy ~= nil then
-        local function spawn_arrow()
-          local archer_pos = archer.pos()
+        local archer_pos = archer.pos()
 
-          local target_pos = target_enemy.pos()
-          local enemy_dir = target_enemy.direction()
-          local enemy_speed = target_enemy.speed()
+        local target_pos = target_enemy.pos()
+        local enemy_dir = target_enemy.direction()
+        local enemy_speed = target_enemy.speed()
 
-          -- Make a guess for where the enemy will be by the time our arrow
-          -- would reach them had we aimed straight for them, and aim for there
-          -- instead.
-          local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
-          local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
-          local to_add = PosScale(DirDelta(enemy_dir), scale)
-          target_pos = PosAdd(target_pos, to_add)
+        -- Make a guess for where the enemy will be by the time our arrow
+        -- would reach them had we aimed straight for them, and aim for there
+        -- instead.
+        local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
+        local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
+        local to_add = PosScale(DirDelta(enemy_dir), scale)
+        target_pos = PosAdd(target_pos, to_add)
 
-          return MakeArrow(archer_pos, target_pos)
-        end
-        entity_map.try_spawn(spawn_arrow)
+        local arrow = MakeArrow(archer_pos, target_pos)
+        entity_map.spawn(arrow)
 
         fire_rate_cooldown = fire_rate
       end
@@ -677,38 +675,73 @@ end
 function MakeEntityMap()
   entity_map = {}
 
-  local MAX_ENTITIES = 512
   local entities = {}
+  -- Head of the freelist of IDs
+  local next_free_id = nil
+  local num_allocated_ids = 0
 
-  function entity_map.entities()
-    return pairs(entities)
-  end
-
-  function entity_map.try_spawn(make_entity)
-    for i = 1, MAX_ENTITIES do
-      if entities[i] == nil then
-        entities[i] = make_entity()
-        assert(entities[i] ~= nil)
-        assert(type(entities[i]) == "table")
-        return true
+  local function live_entities()
+    local live_entities = {}
+    for id = 0, num_allocated_ids - 1 do
+      local entity = entities[id]
+      if type(entity) == "table" then
+        live_entities[id] = entity
       end
     end
-    return false
+    return pairs(live_entities)
+  end
+
+  function entity_map.entities()
+    local live_entities = {}
+    for id = 0, num_allocated_ids - 1 do
+      local entity = entities[id]
+      if type(entity) == "table" then
+        add(live_entities, entity)
+      end
+    end
+    return all(live_entities)
+  end
+
+  function entity_map.spawn(entity)
+    assert(type(entity) == "table")
+
+    if next_free_id ~= nil then
+      -- If we have free IDs, use the head of the freelist
+      local next_id = entities[next_free_id]
+      assert(type(next_id) == "number" or next_id == nil)
+
+      entities[next_free_id] = entity
+      next_free_id = next_id
+    else
+      -- If we have no free IDs, allocate a new ID
+      entities[num_allocated_ids] = entity
+      num_allocated_ids += 1
+    end
+  end
+
+  local function erase_id(id)
+    -- Insert this ID to the front of the freelist
+    entities[id] = next_free_id
+    next_free_id = id
   end
 
   function entity_map.update()
-    for i, entity in pairs(entities) do
+    for i, entity in live_entities() do
       local result = entity.update()
       if result.should_erase then
-        entities[i] = nil
+        erase_id(i)
       end
     end
   end
 
   function entity_map.draw()
-    for _, entity in pairs(entities) do
+    for _, entity in live_entities() do
       entity.draw()
     end
+  end
+
+  function entity_map.num_allocated_ids()
+    return num_allocated_ids
   end
 
   return entity_map
@@ -752,15 +785,12 @@ function UpdateInput()
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
       if added and selected_tower_type == TypeId.ARCHER then
-        local function spawn_archer()
-          -- clone cursor_pos since cursor_pos is mutated:
-          local archer_pos = {
-            x = cursor_pos.x,
-            y = cursor_pos.y,
-          }
-          return MakeArcher(archer_pos)
-        end
-        assert(entity_map.try_spawn(spawn_archer))
+        -- clone cursor_pos since cursor_pos is mutated:
+        local archer_pos = {
+          x = cursor_pos.x,
+          y = cursor_pos.y,
+        }
+        entity_map.spawn(MakeArcher(archer_pos))
       end
     elseif grid_tile_type == selected_tower_type then
       assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
@@ -834,7 +864,7 @@ function UpdateEntities()
   entity_map.update()
 
   if time % 100 == 99 then
-    entity_map.try_spawn(MakeEnemy)
+    entity_map.spawn(MakeEnemy())
   end
 end
 
@@ -848,19 +878,20 @@ function DrawDebugStats()
   end
 
   local mem = stat(0) * 100 / 2048
-  print("mem%: "..mem.."%", 96, 0)
+  print("mem%: "..mem.."%", 84, 0)
   local cpu = stat(1) * 100
-  print("cpu%: "..cpu.."%", 96, 8)
+  print("cpu%: "..cpu.."%", 84, 8)
+  print("ids: "..entity_map.num_allocated_ids(), 84, 16)
 end
 
 function _update()
-  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
+  cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
