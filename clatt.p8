@@ -32,7 +32,8 @@ TileSpriteId = {
   ENTRANCE = 7,
   ARCHER = 8,
   ARROW = 9,
-  PINWHEEL = 13
+  PINWHEEL = 13,
+  LIGHTNING = 14,
 }
 
 TypeId = {
@@ -45,7 +46,8 @@ TypeId = {
   ENEMY_HOLD = 4,
   ARCHER = 5,
   ENEMY = 6,
-  PINWHEEL = 7
+  PINWHEEL = 7,
+  LIGHTNING = 8,
 }
 
 selected_tower = TypeId.WALL
@@ -524,7 +526,6 @@ function MakeEnemy()
     return direction
   end
 
-  -- Returns how many tiles the enemy moves per game tick.
   function enemy.speed()
     return 1 / MAX_PROGRESS
   end
@@ -553,7 +554,6 @@ function MakeArcher(pos)
     frames += 1
 
     if fire_rate_cooldown == 0 then
-      -- find target enemy
       local target_enemy = nil
       local target_enemy_distance = 32
       for _, entity in entity_map.entities() do
@@ -569,7 +569,6 @@ function MakeArcher(pos)
         end
       end
 
-      -- brrrrr
       if target_enemy ~= nil then
         local function spawn_arrow()
           local archer_pos = archer.pos()
@@ -578,9 +577,6 @@ function MakeArcher(pos)
           local enemy_dir = target_enemy.direction()
           local enemy_speed = target_enemy.speed()
 
-          -- Make a guess for where the enemy will be by the time our arrow
-          -- would reach them had we aimed straight for them, and aim for there
-          -- instead.
           local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
           local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
           local to_add = PosScale(DirDelta(enemy_dir), scale)
@@ -631,13 +627,18 @@ function MakePinwheel(pos)
     local result = {
       should_erase = false,
     }
+    if grid.tile(pos) ~= TypeId.PINWHEEL then
+      result.should_erase = true
+      return result
+    end
+    
     frames += 1
 
     if fire_rate_cooldown == 0 then
       for i = 0, n_directions - 1 do
         local angle_offset = i / n_directions
         local spin_angle = (frames % spin_rate) / spin_rate
-        local angle = angle_offset + spin_angle
+        local angle = angle_offset - spin_angle
 
         local pos_x = cos(angle)
         local pos_y = sin(angle)
@@ -659,7 +660,7 @@ function MakePinwheel(pos)
   end
 
   function pinwheel.draw()
-    -- handled via map tiles
+    -- pass
   end
 
   function pinwheel.type_id()
@@ -674,6 +675,89 @@ function MakePinwheel(pos)
   end
 
   return pinwheel
+end
+
+function MakeLightning(pos)
+  local lightning = {}
+
+  local range = 6
+  local fire_rate = 60
+  local fire_rate_cooldown = 0
+  local firing_length = 4
+  local active_beam_frames = 0
+  local frames = 0
+
+  local target_pixel_pos = { x = 0, y = 0 }
+
+  function lightning.update()
+    local result = {
+      should_erase = false,
+    }
+    if grid.tile(pos) ~= TypeId.LIGHTNING then
+      result.should_erase = true
+      return result
+    end
+
+    frames += 1
+
+    if active_beam_frames > 0 then
+      active_beam_frames -= 1
+    end
+
+    if fire_rate_cooldown == 0 then
+      local target_enemy = nil
+      local target_enemy_distance = 999
+      for _, entity in entity_map.entities() do
+        if entity.type_id() == TypeId.ENEMY then
+          local enemy_pos = entity.pos()
+          local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
+          if enemy_distance < range then
+            if enemy_distance < target_enemy_distance then
+              target_enemy_distance = enemy_distance
+              target_enemy = entity
+            end
+          end
+        end
+      end
+
+      if target_enemy != nil then
+        target_pixel_pos.x = target_enemy.pos().x * TILE_WIDTH
+        target_pixel_pos.y = target_enemy.pos().y * TILE_WIDTH
+        active_beam_frames = firing_length
+        fire_rate_cooldown = fire_rate
+      end
+    else
+      fire_rate_cooldown -= 1
+    end
+
+    return result
+  end
+
+  function lightning.draw()
+    if active_beam_frames == 0 then
+      return
+    end
+    
+    local start_x = (pos.x + 0.5) * TILE_WIDTH
+    local start_y = (pos.y + 0.5) * TILE_WIDTH
+    
+    line(start_x - 1, start_y, target_pixel_pos.x, target_pixel_pos.y, 12)
+    line(start_x + 1, start_y, target_pixel_pos.x, target_pixel_pos.y, 12)
+    line(start_x, start_y, target_pixel_pos.x, target_pixel_pos.y, 10)
+  end
+
+  function lightning.type_id()
+    return TypeId.LIGHTNING
+  end
+
+  function lightning.pos()
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
+  end
+
+  return lightning
 end
 
 function MakeEntityMap()
@@ -754,7 +838,6 @@ function UpdateInput()
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
       if added then
-        -- clone cursor_pos since cursor_pos is mutated:
         local tower_pos = {
           x = cursor_pos.x,
           y = cursor_pos.y,
@@ -764,11 +847,16 @@ function UpdateInput()
             return MakeArcher(tower_pos)
           end
           assert(entity_map.try_spawn(spawn_archer))
-        elseif selected_tower == TypeId.PINWHEEL then
+        elseif selected_tower_type == TypeId.PINWHEEL then
           local function spawn_pinwheel()
             return MakePinwheel(tower_pos)
           end
           assert(entity_map.try_spawn(spawn_pinwheel))
+        elseif selected_tower_type == TypeId.LIGHTNING then 
+          local function spawn_lightning()
+            return MakeLightning(tower_pos)
+          end
+          assert(entity_map.try_spawn(spawn_lightning))
         end
       end
     elseif grid_tile_type == selected_tower_type then
@@ -782,6 +870,8 @@ function UpdateInput()
       selected_tower = TypeId.ARCHER
     elseif selected_tower == TypeId.ARCHER then
       selected_tower = TypeId.PINWHEEL
+    elseif selected_tower == TypeId.PINWHEEL then
+      selected_tower = TypeId.LIGHTNING
     else
       selected_tower = TypeId.WALL
     end
@@ -810,6 +900,8 @@ function DrawGrid()
         id = TileSpriteId.ARCHER
       elseif tile == TypeId.PINWHEEL then
         id = TileSpriteId.PINWHEEL
+      elseif tile == TypeId.LIGHTNING then
+        id = TileSpriteId.LIGHTNING
       elseif tile == TypeId.ENEMY_HOLD then
         id = 36
       else
@@ -884,29 +976,20 @@ end
 Initialize()
 
 __gfx__
-00000000000000000000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000000000000000000
-60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000070220700000000000000000
-666666666666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000002ee2000000000000000000
-66066086606606600006600000600600700000070000000003bbbb3002888820055555500000000000400000000040000000400002e2ee260000000000000000
-60660686660668660160061001600610700000070000000003bbbb3002888820004444000044450000044000000040000000400062ee2e200000000000000000
-660660866066086000111100001111000000000000000000033bb330022882200042240000000000000005000000050000005000002ee2000000000000000000
-60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000070220700000000000000000
-66068088608608800000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000060000000000000000000
+00000000000000000000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000076660000000000
+60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000070220700766a66000000000
+666666666666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000002ee200066aa66000000000
+66066086606606600006600000600600700000070000000003bbbb3002888820055555500000000000400000000040000000400002e2ee26066a66d000000000
+60660686660668660160061001600610700000070000000003bbbb3002888820004444000044460000044000000040000000400062ee2e2000666d0000000000
+660660866066086000111100001111000000000000000000033bb330022882200042240000000000000006000000060000006000002ee2000006d00000000000
+60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000070220700006d00000000000
+66068088608608800000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000060000055550000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000601000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000601000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000006061000666610000000a0ed00000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00600000006660000060060000666000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00600000006006000060060000600600006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00600000006660000060060000600600006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00600000006060000060060000600600006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00666600006006000006660000666000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 011000001d1501d1501d1501d1552115523155241552914029140291402914029145000002510029140000002d130000002b14029140291402914029140291450000000000000000000000000000000000000000
 011000000c6000000000000000000c655000000000000000000000000000000000000c655000000000000000000000000000000000000c65500000000000000000000000000c6450c6450c605000000c65500000
