@@ -75,18 +75,12 @@ OFFSCREEN_END_POS = {
   y = WORLD_HEIGHT,
 }
 
-function OppositeDir(dir)
-  if dir == Direction.LEFT then
-    return Direction.RIGHT
-  elseif dir == Direction.RIGHT then
-    return Direction.LEFT
-  elseif dir == Direction.UP then
-    return Direction.DOWN
-  else
-    assert(dir == Direction.DOWN)
-    return Direction.UP
-  end
-end
+OPPOSITE_DIR = {
+  [Direction.LEFT] = Direction.RIGHT,
+  [Direction.RIGHT] = Direction.LEFT,
+  [Direction.UP] = Direction.DOWN,
+  [Direction.DOWN] = Direction.UP,
+}
 
 function Index(x, y)
   return x + y * WORLD_WIDTH + 1
@@ -131,12 +125,16 @@ function PosInBounds(pos)
   return pos.x >= 0 and pos.x < WORLD_WIDTH and pos.y >= 0 and pos.y < WORLD_HEIGHT
 end
 
+OCCUPIABLE_TILES = {
+  [TypeId.EMPTY] = true,
+  [TypeId.ENTRANCE] = true,
+  [TypeId.EXIT] = true,
+  [TypeId.ENEMY_HOLD] = true,
+}
+
 function EnemyCanOccupyPos(pos)
   local tile = grid.tile(pos)
-  return tile == TypeId.EMPTY
-      or tile == TypeId.ENTRANCE
-      or tile == TypeId.EXIT
-      or tile == TypeId.ENEMY_HOLD
+  return OCCUPIABLE_TILES[tile]
 end
 
 function PosAdd(pos1, pos2)
@@ -168,37 +166,11 @@ function PosNormalize(pos)
   return PosScale(pos, 1 / PosMagnitude(pos))
 end
 
-function MakeQueue()
-  local queue = {}
-
-  local front = 0
-  local back = 0
-
-  function queue.pop()
-    assert(front <= back)
-    if front == back then
-      return nil
-    else
-      result = queue[front]
-      queue[front] = nil
-      front += 1
-      return result
-    end
-  end
-
-  function queue.push(item)
-    queue[back] = item
-    back += 1
-  end
-
-  return queue
-end
-
 function MakeGrid()
   local grid = {}
 
   local tiles = {}
-  local enemy_path_map = nil
+  local enemy_dir_map, enemy_distance_map
 
   for y = 0, WORLD_HEIGHT - 1 do
     for x = 0, WORLD_WIDTH - 1 do
@@ -210,69 +182,85 @@ function MakeGrid()
   tiles[PosIndex(END_POS)] = TypeId.EXIT
 
   local function BuildEnemyPathMap()
-    local queue = MakeQueue()
-    queue.push({
-      pos = END_POS,
-      dir = Direction.DOWN,
-      distance = 0,
-    })
-    local path_map = {}
+    local queue = {}
+    local q_front = 1
+    local q_back = 1
 
-    while true do
-      local item = queue.pop()
-      if item == nil then
-        break
-      end
+    -- Cache math functions we use
+    local abs = abs
 
-      local index = PosIndex(item.pos)
+    -- Layout: pos, direction, distance
+    queue[q_front] = PosIndex(END_POS)
+    queue[q_front + 1] = Direction.DOWN
+    queue[q_front + 2] = 0
+    q_back += 3
 
-      if path_map[index] == nil then
-        path_map[index] = {
-          dir = item.dir,
-          distance = item.distance,
-        }
+    -- We use some bit tricks assuming this is the world width
+    assert(WORLD_WIDTH == 16)
+    local grid_size = WORLD_WIDTH * WORLD_HEIGHT
 
-        for _, dir in pairs(Direction) do
-          local next_pos = PosAfter(item.pos, dir)
-          if PosInBounds(next_pos) and EnemyCanOccupyPos(next_pos) then
-            queue.push({
-              pos = next_pos,
-              dir = OppositeDir(dir),
-              distance = item.distance + 1,
-            })
+    local pos_after_map = {
+      [Direction.LEFT] = -1,
+      [Direction.RIGHT] = 1,
+      [Direction.UP] = -WORLD_WIDTH,
+      [Direction.DOWN] = WORLD_WIDTH,
+    }
+
+    local dir_map = {}
+    local distance_map = {}
+
+    while q_front < q_back do
+      local pos_index = queue[q_front]
+      local dir = queue[q_front + 1]
+      local distance = queue[q_front + 2]
+      q_front += 3
+
+      if dir_map[pos_index] == nil then
+        dir_map[pos_index] = dir
+        distance_map[pos_index] = distance
+
+        for dir = 0, 3 do
+          local next_pos = pos_index + pos_after_map[dir]
+          -- Check that next_pos is in bounds:
+          if abs(((next_pos - 1) & 0xf) - ((pos_index - 1) & 0xf)) <= 1
+              and next_pos >= 1 and next_pos <= grid_size then
+            local tile = tiles[next_pos]
+            if OCCUPIABLE_TILES[tile] then
+              queue[q_back] = next_pos
+              queue[q_back + 1] = OPPOSITE_DIR[dir]
+              queue[q_back + 2] = distance + 1
+              q_back += 3
+            end
           end
         end
       end
     end
 
-    return path_map
+    return dir_map, distance_map
   end
 
   function grid.tile(pos)
     return tiles[PosIndex(pos)]
   end
 
-  local function AllTilesReachableInPathMap(path_map)
+  local function AllTilesReachableInPathMap(dir_map)
     for tile_index in enemy_hold_map.occupied_tiles() do
-      if path_map[tile_index] == nil then
+      if dir_map[tile_index] == nil then
         return false
       end
     end
 
-    if path_map[PosIndex(START_POS)] == nil then
-      return false
-    end
-
-    return true
+    return dir_map[PosIndex(START_POS)] ~= nil
   end
 
   function grid.try_set_tile(pos, tile)
     local index = PosIndex(pos)
     local prev_tile = tiles[index]
     tiles[index] = tile
-    local new_enemy_path_map = BuildEnemyPathMap()
-    if AllTilesReachableInPathMap(new_enemy_path_map) then
-      enemy_path_map = new_enemy_path_map
+    local dir_map, distance_map = BuildEnemyPathMap()
+    if AllTilesReachableInPathMap(dir_map) then
+      enemy_dir_map = dir_map
+      enemy_distance_map = distance_map
       return true
     else
       tiles[index] = prev_tile
@@ -301,25 +289,17 @@ function MakeGrid()
   end
 
   function grid.enemy_dir_at(pos)
-    if enemy_path_map == nil then
-      enemy_path_map = BuildEnemyPathMap()
+    if enemy_dir_map == nil then
+      enemy_dir_map, enemy_distance_map = BuildEnemyPathMap()
     end
-    path_info = enemy_path_map[PosIndex(pos)]
-    if path_info == nil then
-      return nil
-    end
-    return path_info.dir
+    return enemy_dir_map[PosIndex(pos)]
   end
 
   function grid.distance_to_end(pos)
-    if enemy_path_map == nil then
-      enemy_path_map = BuildEnemyPathMap()
+    if enemy_dir_map == nil then
+      enemy_dir_map, enemy_distance_map = BuildEnemyPathMap()
     end
-    path_info = enemy_path_map[PosIndex(pos)]
-    if path_info == nil then
-      return nil
-    end
-    return path_info.distance
+    return enemy_distance_map[PosIndex(pos)]
   end
 
   return grid
@@ -466,7 +446,7 @@ function MakeEnemy()
     progress = 0
 
     local from_tile = to_tile
-    local prev_from_tile = PosAfter(from_tile, OppositeDir(direction))
+    local prev_from_tile = PosAfter(from_tile, OPPOSITE_DIR[direction])
 
     if PosEq(from_tile, END_POS) then
       direction = Direction.DOWN
@@ -556,7 +536,7 @@ function MakeArcher(pos)
     if fire_rate_cooldown == 0 then
       local target_enemy = nil
       local target_enemy_distance = 32
-      for _, entity in entity_map.entities() do
+      for entity in entity_map.entities() do
         if entity.type_id() == TypeId.ENEMY then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
@@ -570,21 +550,22 @@ function MakeArcher(pos)
       end
 
       if target_enemy ~= nil then
-        local function spawn_arrow()
-          local archer_pos = archer.pos()
+        local archer_pos = archer.pos()
 
-          local target_pos = target_enemy.pos()
-          local enemy_dir = target_enemy.direction()
-          local enemy_speed = target_enemy.speed()
+        local target_pos = target_enemy.pos()
+        local enemy_dir = target_enemy.direction()
+        local enemy_speed = target_enemy.speed()
 
-          local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
-          local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
-          local to_add = PosScale(DirDelta(enemy_dir), scale)
-          target_pos = PosAdd(target_pos, to_add)
+        -- Make a guess for where the enemy will be by the time our arrow
+        -- would reach them had we aimed straight for them, and aim for there
+        -- instead.
+        local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
+        local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
+        local to_add = PosScale(DirDelta(enemy_dir), scale)
+        target_pos = PosAdd(target_pos, to_add)
 
-          return MakeArrow(archer_pos, target_pos)
-        end
-        entity_map.try_spawn(spawn_arrow)
+        local arrow = MakeArrow(archer_pos, target_pos)
+        entity_map.spawn(arrow)
 
         fire_rate_cooldown = fire_rate
       end
@@ -763,38 +744,79 @@ end
 function MakeEntityMap()
   entity_map = {}
 
-  local MAX_ENTITIES = 512
   local entities = {}
+  -- Head of the freelist of IDs
+  local next_free_id = nil
+  local num_allocated_ids = 0
 
-  function entity_map.entities()
-    return pairs(entities)
-  end
+  local function live_entities()
+    -- Cache the global function for faster lookup
+    local type = type
 
-  function entity_map.try_spawn(make_entity)
-    for i = 1, MAX_ENTITIES do
-      if entities[i] == nil then
-        entities[i] = make_entity()
-        assert(entities[i] ~= nil)
-        assert(type(entities[i]) == "table")
-        return true
+    local live_entities = {}
+    for id = 0, num_allocated_ids - 1 do
+      local entity = entities[id]
+      if type(entity) == "table" then
+        live_entities[id] = entity
       end
     end
-    return false
+    return pairs(live_entities)
+  end
+
+  function entity_map.entities()
+    -- Cache the global function for faster lookup
+    local type = type
+
+    local live_entities = {}
+    for id = 0, num_allocated_ids - 1 do
+      local entity = entities[id]
+      if type(entity) == "table" then
+        add(live_entities, entity)
+      end
+    end
+    return all(live_entities)
+  end
+
+  function entity_map.spawn(entity)
+    assert(type(entity) == "table")
+
+    if next_free_id ~= nil then
+      -- If we have free IDs, use the head of the freelist
+      local next_id = entities[next_free_id]
+      assert(type(next_id) == "number" or next_id == nil)
+
+      entities[next_free_id] = entity
+      next_free_id = next_id
+    else
+      -- If we have no free IDs, allocate a new ID
+      entities[num_allocated_ids] = entity
+      num_allocated_ids += 1
+    end
+  end
+
+  local function erase_id(id)
+    -- Insert this ID to the front of the freelist
+    entities[id] = next_free_id
+    next_free_id = id
   end
 
   function entity_map.update()
-    for i, entity in pairs(entities) do
+    for i, entity in live_entities() do
       local result = entity.update()
       if result.should_erase then
-        entities[i] = nil
+        erase_id(i)
       end
     end
   end
 
   function entity_map.draw()
-    for _, entity in pairs(entities) do
+    for _, entity in live_entities() do
       entity.draw()
     end
+  end
+
+  function entity_map.num_allocated_ids()
+    return num_allocated_ids
   end
 
   return entity_map
@@ -843,20 +865,11 @@ function UpdateInput()
           y = cursor_pos.y,
         }
         if selected_tower_type == TypeId.ARCHER then
-          local function spawn_archer()
-            return MakeArcher(tower_pos)
-          end
-          assert(entity_map.try_spawn(spawn_archer))
+          assert(entity_map.spawn(MakeArcher(tower_pos)))
         elseif selected_tower_type == TypeId.PINWHEEL then
-          local function spawn_pinwheel()
-            return MakePinwheel(tower_pos)
-          end
-          assert(entity_map.try_spawn(spawn_pinwheel))
+          assert(entity_map.spawn(MakePinwheel(tower_pos)))
         elseif selected_tower_type == TypeId.LIGHTNING then 
-          local function spawn_lightning()
-            return MakeLightning(tower_pos)
-          end
-          assert(entity_map.try_spawn(spawn_lightning))
+          assert(entity_map.spawn(MakeLightning(tower_pos)))
         end
       end
     elseif grid_tile_type == selected_tower_type then
@@ -936,7 +949,7 @@ function UpdateEntities()
   entity_map.update()
 
   if time % 100 == 99 then
-    entity_map.try_spawn(MakeEnemy)
+    entity_map.spawn(MakeEnemy())
   end
 end
 
@@ -950,19 +963,20 @@ function DrawDebugStats()
   end
 
   local mem = stat(0) * 100 / 2048
-  print("mem%: "..mem.."%", 96, 0)
+  print("mem%: "..mem.."%", 84, 0)
   local cpu = stat(1) * 100
-  print("cpu%: "..cpu.."%", 96, 8)
+  print("cpu%: "..cpu.."%", 84, 8)
+  print("ids: "..entity_map.num_allocated_ids(), 84, 16)
 end
 
 function _update()
-  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
+  cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
