@@ -597,10 +597,10 @@ end
 function MakePinwheel(pos)
   local pinwheel = {}
 
-  local fire_rate = 4
+  local fire_rate = 5
   local fire_rate_cooldown = 0
   local frames = 0
-  local range = 3
+  local range = 2
   local spin_rate = 150
   local n_directions = 4
 
@@ -627,10 +627,7 @@ function MakePinwheel(pos)
         local offset_pos = { x = range * pos_x, y = range * pos_y }
         local target_pos = PosAdd(pinwheel.pos(), offset_pos)
 
-        local function spawn_arrow()
-          return MakeArrow(pinwheel.pos(), target_pos)
-        end
-        entity_map.try_spawn(spawn_arrow)
+        entity_map.spawn(MakeArrow(pinwheel.pos(), target_pos))
       end
       fire_rate_cooldown = fire_rate
     else
@@ -661,8 +658,8 @@ end
 function MakeLightning(pos)
   local lightning = {}
 
-  local range = 6
-  local fire_rate = 60
+  local range = 8
+  local fire_rate = 90
   local fire_rate_cooldown = 0
   local firing_length = 4
   local active_beam_frames = 0
@@ -688,7 +685,7 @@ function MakeLightning(pos)
     if fire_rate_cooldown == 0 then
       local target_enemy = nil
       local target_enemy_distance = 999
-      for _, entity in entity_map.entities() do
+      for entity in entity_map.entities() do
         if entity.type_id() == TypeId.ENEMY then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
@@ -722,9 +719,7 @@ function MakeLightning(pos)
     local start_x = (pos.x + 0.5) * TILE_WIDTH
     local start_y = (pos.y + 0.5) * TILE_WIDTH
     
-    line(start_x - 1, start_y, target_pixel_pos.x, target_pixel_pos.y, 12)
-    line(start_x + 1, start_y, target_pixel_pos.x, target_pixel_pos.y, 12)
-    line(start_x, start_y, target_pixel_pos.x, target_pixel_pos.y, 10)
+    line(start_x, start_y - 2, target_pixel_pos.x, target_pixel_pos.y, 7)
   end
 
   function lightning.type_id()
@@ -865,11 +860,11 @@ function UpdateInput()
           y = cursor_pos.y,
         }
         if selected_tower_type == TypeId.ARCHER then
-          assert(entity_map.spawn(MakeArcher(tower_pos)))
+          entity_map.spawn(MakeArcher(tower_pos))
         elseif selected_tower_type == TypeId.PINWHEEL then
-          assert(entity_map.spawn(MakePinwheel(tower_pos)))
+          entity_map.spawn(MakePinwheel(tower_pos))
         elseif selected_tower_type == TypeId.LIGHTNING then 
-          assert(entity_map.spawn(MakeLightning(tower_pos)))
+          entity_map.spawn(MakeLightning(tower_pos))
         end
       end
     elseif grid_tile_type == selected_tower_type then
