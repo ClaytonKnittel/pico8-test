@@ -384,7 +384,7 @@ function MakeArrow(start_pos, target_pos)
   function arrow.draw()
     local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
     local sprite = arrow_sprite(delta_dir)
-    spr(sprite.id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, sprite.flip_x, sprite.flip_y)
+    spr(sprite.id, TILE_WIDTH * (pos.x - 0.5), TILE_WIDTH * (pos.y - 0.5), 1, 1, sprite.flip_x, sprite.flip_y)
   end
 
   function arrow.type_id()
@@ -530,9 +530,16 @@ function MakeArcher(pos)
     local result = {
       should_erase = false,
     }
+    if grid.tile(pos) ~= TypeId.ARCHER then
+      result.should_erase = true
+      return result
+    end
+
+
     frames += 1
 
     if fire_rate_cooldown == 0 then
+      -- find target enemy
       local target_enemy = nil
       local target_enemy_distance = 32
       for _, entity in entity_map.entities() do
@@ -548,6 +555,7 @@ function MakeArcher(pos)
         end
       end 
 
+      -- brrrrr
       if target_enemy ~= nil then
         local function spawn_arrow()
           return MakeArrow(archer.pos(), target_enemy.pos())
@@ -564,7 +572,7 @@ function MakeArcher(pos)
   end
 
   function archer.draw()
-    -- handled via map tiles
+    -- pass
   end
 
   function archer.type_id()
@@ -572,7 +580,10 @@ function MakeArcher(pos)
   end
 
   function archer.pos()
-    return pos
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
   end
 
   return archer
@@ -581,11 +592,12 @@ end
 function MakePinwheel(pos)
   local pinwheel = {}
 
-  local fire_rate = 2
+  local fire_rate = 4
   local fire_rate_cooldown = 0
   local frames = 0
-  local range = 16
+  local range = 3
   local spin_rate = 150
+  local n_directions = 4
 
   function pinwheel.update()
     local result = {
@@ -627,7 +639,10 @@ function MakePinwheel(pos)
   end
 
   function pinwheel.pos()
-    return pos
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
   end
 
   return pinwheel
@@ -711,17 +726,17 @@ function UpdateInput()
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
       if added then
-        local tower_center_x = cursor_pos.x + 0.5
-        local tower_center_y = cursor_pos.y + 0.5
-        local tower_pos = {x=tower_center_x, y=tower_center_y}
-        
-        -- FIXED: Unnested structural tower spawning checks so Pinwheel correctly instantiates background entity loop
+        -- clone cursor_pos since cursor_pos is mutated:
+        local tower_pos = {
+          x = cursor_pos.x,
+          y = cursor_pos.y,
+        }
         if selected_tower_type == TypeId.ARCHER then
           local function spawn_archer()
             return MakeArcher(tower_pos)
           end
           assert(entity_map.try_spawn(spawn_archer))
-        elseif selected_tower_type == TypeId.PINWHEEL then
+        elseif selected_tower == TypeId.PINWHEEL then
           local function spawn_pinwheel()
             return MakePinwheel(tower_pos)
           end
@@ -821,13 +836,13 @@ function DrawDebugStats()
 end
 
 function _update()
+  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
-  cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
