@@ -32,7 +32,8 @@ TileSpriteId = {
   ENTRANCE = 7,
   ARCHER = 8,
   ARROW = 9,
-  PINWHEEL = 13
+  PINWHEEL = 13,
+  LIGHTNING = 14,
 }
 
 TypeId = {
@@ -45,7 +46,8 @@ TypeId = {
   ENEMY_HOLD = 4,
   ARCHER = 5,
   ENEMY = 6,
-  PINWHEEL=7
+  PINWHEEL = 7,
+  LIGHTNING = 8,
 }
 
 selected_tower = TypeId.WALL
@@ -330,7 +332,6 @@ function MakeArrow(start_pos, target_pos)
     return result
   end
 
-  -- Not local since it does not capture anything
   function arrow_sprite(dir)
     local flip_x = false
     local flip_y = false
@@ -378,7 +379,6 @@ end
 
 function MakeEnemyHoldMap()
   local enemy_hold_map = {}
-
   local hold_map = {}
 
   function enemy_hold_map.occupied()
@@ -506,7 +506,6 @@ function MakeEnemy()
     return direction
   end
 
-  -- Returns how many tiles the enemy moves per game tick.
   function enemy.speed()
     return 1 / MAX_PROGRESS
   end
@@ -517,11 +516,11 @@ end
 function MakeArcher(pos)
   local archer = {}
 
-  local range = 10
+  local range = 6
   local fire_rate = 10
   local fire_rate_cooldown = 0
   local frames = 0
-  local espp_rate = 0.15 -- IRS max
+  local espp_rate = 0.15
 
   function archer.update()
     local result = {
@@ -535,7 +534,6 @@ function MakeArcher(pos)
     frames += 1
 
     if fire_rate_cooldown == 0 then
-      -- find target enemy
       local target_enemy = nil
       local target_enemy_distance = 32
       for entity in entity_map.entities() do
@@ -551,7 +549,6 @@ function MakeArcher(pos)
         end
       end
 
-      -- brrrrr
       if target_enemy ~= nil then
         local archer_pos = archer.pos()
 
@@ -597,60 +594,168 @@ function MakeArcher(pos)
   return archer
 end
 
--- function MakePinwheel(pos)
---   local pinwheel = {}
+function MakePinwheel(pos)
+  local pinwheel = {}
 
---   local range = 10
---   local fire_rate = 5
---   local fire_rate_cooldown = 0
---   local frames = 0
---   local radius = 5
---   local direction_idx = 0
---   local n_directions = 8
+  local fire_rate_cooldown = 0
+  local frames = 0
+  local range = 2.5
 
---   function pinwheel.update()
---     local result = {
---       should_erase = false,
---     }
---     frames += 1
+  -- sprinkler mode
+  -- local spin_rate = 150
+  -- local fire_rate = 6
+  -- local n_direction = 4
 
---     if fire_rate_cooldown == 0 then
---       -- brrrrr
---       if direction_idx == 0:
---         target_pos = {x=0, y=-1}
-
---       target_pos = pinwheel.pos() + target_pos
+  -- tic shooter mode
+  local spin_rate = 0
+  local n_directions = 12
+  local fire_rate = 10
 
 
---       local function spawn_arrow()
---         return MakeArrow(pinwheel.pos(), target_enemy.pos())
---       end
---       entity_map.try_spawn(spawn_arrow)
+  function pinwheel.update()
+    local result = {
+      should_erase = false,
+    }
+    if grid.tile(pos) ~= TypeId.PINWHEEL then
+      result.should_erase = true
+      return result
+    end
+    
+    frames += 1
 
---       fire_rate_cooldown = fire_rate
+    local will_fire = false
+    if fire_rate_cooldown == 0 then
+      for entity in entity_map.entities() do
+        if not will_fire and entity.type_id() == TypeId.ENEMY then
+          local enemy_pos = entity.pos()
+          local enemy_distance = PosMagnitude(PosSub(enemy_pos, pinwheel.pos()))
+          if enemy_distance < range then
+            will_fire = true
+          end
+        end
+      end
 
---       direction_idx = (direction_idx + 1) % n_directions
---     else
---       fire_rate_cooldown -= 1
---     end
+      if will_fire then
+        for i = 0, n_directions - 1 do
+          local angle_offset = i / n_directions
+          local spin_angle = (frames % spin_rate) / spin_rate
+          local angle = angle_offset - spin_angle
 
---     return result
---   end
+          local pos_x = cos(angle)
+          local pos_y = sin(angle)
+          
+          local offset_pos = { x = range * pos_x, y = range * pos_y }
+          local target_pos = PosAdd(pinwheel.pos(), offset_pos)
 
---   function pinwheel.draw()
---     -- pass
---   end
+          entity_map.spawn(MakeArrow(pinwheel.pos(), target_pos))
+        end
+        fire_rate_cooldown = fire_rate
+      end
+    else
+      fire_rate_cooldown -= 1
+    end
 
---   function pinwheel.type_id()
---     return TypeId.PINWHEEL
---   end
+    return result
+  end
 
---   function pinwheel.pos()
---     return pos
---   end
+  function pinwheel.draw()
+    -- pass
+  end
 
---   return pinwheel
--- end
+  function pinwheel.type_id()
+    return TypeId.PINWHEEL
+  end
+
+  function pinwheel.pos()
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
+  end
+
+  return pinwheel
+end
+
+function MakeLightning(pos)
+  local lightning = {}
+
+  local range = 10
+  local fire_rate = 90
+  local fire_rate_cooldown = 0
+  local firing_length = 4
+  local active_beam_frames = 0
+  local frames = 0
+
+  local target_pixel_pos = { x = 0, y = 0 }
+
+  function lightning.update()
+    local result = {
+      should_erase = false,
+    }
+    if grid.tile(pos) ~= TypeId.LIGHTNING then
+      result.should_erase = true
+      return result
+    end
+
+    frames += 1
+
+    if active_beam_frames > 0 then
+      active_beam_frames -= 1
+    end
+
+    if fire_rate_cooldown == 0 then
+      local target_enemy = nil
+      local target_enemy_distance = 999
+      for entity in entity_map.entities() do
+        if entity.type_id() == TypeId.ENEMY then
+          local enemy_pos = entity.pos()
+          local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
+          if enemy_distance < range then
+            if enemy_distance < target_enemy_distance then
+              target_enemy_distance = enemy_distance
+              target_enemy = entity
+            end
+          end
+        end
+      end
+
+      if target_enemy != nil then
+        target_pixel_pos.x = target_enemy.pos().x * TILE_WIDTH
+        target_pixel_pos.y = target_enemy.pos().y * TILE_WIDTH
+        active_beam_frames = firing_length
+        fire_rate_cooldown = fire_rate
+      end
+    else
+      fire_rate_cooldown -= 1
+    end
+
+    return result
+  end
+
+  function lightning.draw()
+    if active_beam_frames == 0 then
+      return
+    end
+    
+    local start_x = (pos.x + 0.5) * TILE_WIDTH
+    local start_y = (pos.y + 0.5) * TILE_WIDTH
+    
+    line(start_x, start_y - 2, target_pixel_pos.x, target_pixel_pos.y, 7)
+  end
+
+  function lightning.type_id()
+    return TypeId.LIGHTNING
+  end
+
+  function lightning.pos()
+    return {
+      x = pos.x + 0.5,
+      y = pos.y + 0.5,
+    }
+  end
+
+  return lightning
+end
 
 function MakeEntityMap()
   entity_map = {}
@@ -770,13 +875,18 @@ function UpdateInput()
 
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
-      if added and selected_tower_type == TypeId.ARCHER then
-        -- clone cursor_pos since cursor_pos is mutated:
-        local archer_pos = {
+      if added then
+        local tower_pos = {
           x = cursor_pos.x,
           y = cursor_pos.y,
         }
-        entity_map.spawn(MakeArcher(archer_pos))
+        if selected_tower_type == TypeId.ARCHER then
+          entity_map.spawn(MakeArcher(tower_pos))
+        elseif selected_tower_type == TypeId.PINWHEEL then
+          entity_map.spawn(MakePinwheel(tower_pos))
+        elseif selected_tower_type == TypeId.LIGHTNING then 
+          entity_map.spawn(MakeLightning(tower_pos))
+        end
       end
     elseif grid_tile_type == selected_tower_type then
       assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
@@ -787,8 +897,11 @@ function UpdateInput()
   if Pressed(BTN_X) then
     if selected_tower == TypeId.WALL then
       selected_tower = TypeId.ARCHER
+    elseif selected_tower == TypeId.ARCHER then
+      selected_tower = TypeId.PINWHEEL
+    elseif selected_tower == TypeId.PINWHEEL then
+      selected_tower = TypeId.LIGHTNING
     else
-      assert(selected_tower == TypeId.ARCHER)
       selected_tower = TypeId.WALL
     end
   end
@@ -814,6 +927,10 @@ function DrawGrid()
         id = TileSpriteId.EXIT
       elseif tile == TypeId.ARCHER then
         id = TileSpriteId.ARCHER
+      elseif tile == TypeId.PINWHEEL then
+        id = TileSpriteId.PINWHEEL
+      elseif tile == TypeId.LIGHTNING then
+        id = TileSpriteId.LIGHTNING
       elseif tile == TypeId.ENEMY_HOLD then
         id = 36
       else
@@ -831,8 +948,6 @@ function DrawGrid()
           assert(dir == nil)
           goto continue
         end
-
-        -- goto continue
       end
 
       if not DEBUG_DISPLAY_DIR_MAP and id >= 32 then
@@ -870,6 +985,22 @@ function DrawDebugStats()
   print("ids: "..entity_map.num_allocated_ids(), 84, 16)
 end
 
+function DrawSelectedTowerHUD()
+  -- TODO can generate inverse map 
+  local type_to_sprite = {
+    [TypeId.WALL] = TileSpriteId.WALL,
+    [TypeId.ARCHER] = TileSpriteId.ARCHER,
+    [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
+    [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING
+  }
+  
+  local sprite_id = type_to_sprite[selected_tower]
+  if sprite_id then
+    spr(sprite_id, 2, 118)
+    spr(TileSpriteId.CURSOR+1, 2, 118)
+  end
+end
+
 function _update()
   UpdateInput()
   UpdateEntities()
@@ -881,6 +1012,7 @@ function _draw()
   DrawGrid()
   DrawEntities()
   DrawCursor()
+  DrawSelectedTowerHUD()
   DrawDebugStats()
 end
 
@@ -891,19 +1023,19 @@ end
 Initialize()
 
 __gfx__
-00000000000000000000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000000000000000000
-60606060606060600000000000600600700000077000000700333300022222200000000000000000000000000000000000000000070220700000000000000000
-666666666666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000002ee2000000000000000000
-66066086606606600006600000600600700000070000000003bbbb3002888820055555500000000000400000000040000000400002e2ee260000000000000000
-60660686660668660160061001600610700000070000000003bbbb3002888820004444000044450000044000000040000000400062ee2e200000000000000000
-660660866066086000111100001111000000000000000000033bb330022882200042240000000000000005000000050000005000002ee2000000000000000000
-60668688668668660000000000000000700000077000000703333330002222000449944000000000000000000000000000000000070220700000000000000000
-66068088608608800000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000060000000000000000000
+77777666777777760000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000076660000000000
+76666666766666660000000000600600700000077000000700333300022222200000000000000000000000000000000000000000070220700766a66000000000
+766666667666666600600600006006000000000000000000033bb330022882200505005000000000000000000004000000004000002ee200066aa66000000000
+766666667667666d0006600000600600700000070000000003bbbb3002888820055555500000000000400000000040000000400002e2ee26066a66d000000000
+766666667666766d0160061001600610700000070000000003bbbb3002888820004444000044460000044000000040000000400062ee2e2000666d0000000000
+766666667666666d00111100001111000000000000000000033bb330022882200042240000000000000006000000060000006000002ee2000006d00000000000
+7666666d6666666d0000000000000000700000077000000703333330002222000449944000000000000000000000000000000000070220700006d00000000000
+6666dddd666ddddd0000000000000000770770777700007703333330000000000449944000000000000000000000000000000000000060000055550000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000601000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000601000000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000601000000010000000a0ed000000ed000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000006061000666610000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000010000000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -913,7 +1045,8 @@ __gfx__
 00600000006660000060060000600600006666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00600000006060000060060000600600006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00666600006006000006660000666000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000006006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+__map__
+0000000000000000000000130000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
 011000001d1501d1501d1501d1552115523155241552914029140291402914029145000002510029140000002d130000002b14029140291402914029140291450000000000000000000000000000000000000000
 011000000c6000000000000000000c655000000000000000000000000000000000000c655000000000000000000000000000000000000c65500000000000000000000000000c6450c6450c605000000c65500000
