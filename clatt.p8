@@ -681,6 +681,9 @@ function MakeEntityMap()
   local num_allocated_ids = 0
 
   local function live_entities()
+    -- Cache the global function for faster lookup
+    local type = type
+
     local live_entities = {}
     for id = 0, num_allocated_ids - 1 do
       local entity = entities[id]
@@ -692,6 +695,9 @@ function MakeEntityMap()
   end
 
   function entity_map.entities()
+    -- Cache the global function for faster lookup
+    local type = type
+
     local live_entities = {}
     for id = 0, num_allocated_ids - 1 do
       local entity = entities[id]
