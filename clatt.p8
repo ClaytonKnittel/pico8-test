@@ -15,7 +15,7 @@ BTN_X = 5
 TILE_WIDTH = 8
 
 WORLD_WIDTH = 16
-WORLD_HEIGHT = 16
+WORLD_HEIGHT = 14
 
 Direction = {
   LEFT = 0,
@@ -50,17 +50,6 @@ TypeId = {
   PINWHEEL = 7,
   LIGHTNING = 8,
 }
-
-selected_tower = TypeId.WALL
-
-time = 0
-
-cursor_pos = {
-  x = 0,
-  y = 0,
-}
-
-button_timers = { 0, 0, 0, 0, 0, 0 }
 
 START_POS = {
   x = 1,
@@ -306,8 +295,6 @@ function MakeGrid()
   return grid
 end
 
-grid = MakeGrid()
-
 ARROW_SPEED = 0.25
 
 function MakeArrow(start_pos, target_pos)
@@ -420,8 +407,6 @@ function MakeEnemyHoldMap()
 
   return enemy_hold_map
 end
-
-enemy_hold_map = MakeEnemyHoldMap()
 
 function MakeEnemy()
   local enemy = {}
@@ -839,8 +824,6 @@ function MakeEntityMap()
   return entity_map
 end
 
-entity_map = MakeEntityMap()
-
 function UpdateInput()
   local FREQ = 4
 
@@ -860,13 +843,13 @@ function UpdateInput()
     cursor_pos.x = max(cursor_pos.x - 1, 0)
   end
   if Pressed(RIGHT) then
-    cursor_pos.x = min(cursor_pos.x + 1, 15)
+    cursor_pos.x = min(cursor_pos.x + 1, WORLD_WIDTH - 1)
   end
   if Pressed(UP) then
     cursor_pos.y = max(cursor_pos.y - 1, 0)
   end
   if Pressed(DOWN) then
-    cursor_pos.y = min(cursor_pos.y + 1, 15)
+    cursor_pos.y = min(cursor_pos.y + 1, WORLD_HEIGHT - 1)
   end
 
   -- Place tower
@@ -1006,6 +989,23 @@ function _init()
   if not DEBUG then
     music(0)
   end
+
+  selected_tower = TypeId.WALL
+
+  time = 0
+
+  cursor_pos = {
+    x = 0,
+    y = 0,
+  }
+
+  button_timers = { 0, 0, 0, 0, 0, 0 }
+
+  grid = MakeGrid()
+
+  enemy_hold_map = MakeEnemyHoldMap()
+
+  entity_map = MakeEntityMap()
 end
 
 function _update()
