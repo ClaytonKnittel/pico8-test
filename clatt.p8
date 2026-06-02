@@ -520,9 +520,16 @@ function MakeEnemy(enemy_type)
       should_erase = false,
     }
 
+    local prev_from_tile = PosAfter(to_tile, OPPOSITE_DIR[direction])
+
     -- check for death
     if enemy.health <= 0 then
       result.should_erase = true
+
+      -- release holds
+      enemy_hold_map.vacate(prev_from_tile)
+      enemy_hold_map.vacate(to_tile)
+
       -- play death animation
       return result
     end
@@ -535,7 +542,6 @@ function MakeEnemy(enemy_type)
     progress -= MAX_PROGRESS
 
     local from_tile = to_tile
-    local prev_from_tile = PosAfter(from_tile, OPPOSITE_DIR[direction])
 
     if PosEq(from_tile, END_POS) then
       direction = Direction.DOWN
