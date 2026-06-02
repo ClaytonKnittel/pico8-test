@@ -1002,6 +1002,12 @@ function DrawSelectedTowerHUD()
   end
 end
 
+function _init()
+  if not DEBUG then
+    music(0)
+  end
+end
+
 function _update()
   UpdateInput()
   UpdateEntities()
@@ -1016,12 +1022,6 @@ function _draw()
   DrawSelectedTowerHUD()
   DrawDebugStats()
 end
-
-function Initialize()
-  music(0)
-end
-
-Initialize()
 
 __gfx__
 77777776777777760000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000076660011111111
