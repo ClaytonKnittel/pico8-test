@@ -410,50 +410,56 @@ function MakeEnemyHoldMap()
   return enemy_hold_map
 end
 
-ENEMY_SPRITE_ANIMATION_MAP = {
+ENEMY_INFO_MAP = {
   [TypeId.JELLYFISH] = {
-    -- Left
-    TileSpriteId.JELLYFISH + 16,
-    0x1,
-    TileSpriteId.JELLYFISH + 17,
-    0x1,
-    -- Right
-    TileSpriteId.JELLYFISH + 16,
-    0x0,
-    TileSpriteId.JELLYFISH + 17,
-    0x0,
-    -- Up
-    TileSpriteId.JELLYFISH,
-    0x2,
-    TileSpriteId.JELLYFISH + 1,
-    0x2,
-    -- Down
-    TileSpriteId.JELLYFISH,
-    0x0,
-    TileSpriteId.JELLYFISH + 1,
-    0x0,
+    speed = 0.08,
+    animation_data = {
+      -- Left
+      TileSpriteId.JELLYFISH + 16,
+      0x1,
+      TileSpriteId.JELLYFISH + 17,
+      0x1,
+      -- Right
+      TileSpriteId.JELLYFISH + 16,
+      0x0,
+      TileSpriteId.JELLYFISH + 17,
+      0x0,
+      -- Up
+      TileSpriteId.JELLYFISH,
+      0x2,
+      TileSpriteId.JELLYFISH + 1,
+      0x2,
+      -- Down
+      TileSpriteId.JELLYFISH,
+      0x0,
+      TileSpriteId.JELLYFISH + 1,
+      0x0,
+    },
   },
   [TypeId.WIZARD] = {
-    -- Left
-    TileSpriteId.WIZARD + 1,
-    0x0,
-    TileSpriteId.WIZARD + 2,
-    0x0,
-    -- Right
-    TileSpriteId.WIZARD + 1,
-    0x1,
-    TileSpriteId.WIZARD + 2,
-    0x1,
-    -- Up
-    TileSpriteId.WIZARD,
-    0x0,
-    TileSpriteId.WIZARD,
-    0x1,
-    -- Down
-    TileSpriteId.WIZARD,
-    0x0,
-    TileSpriteId.WIZARD,
-    0x1,
+    speed = 0.06,
+    animation_data = {
+      -- Left
+      TileSpriteId.WIZARD + 1,
+      0x0,
+      TileSpriteId.WIZARD + 2,
+      0x0,
+      -- Right
+      TileSpriteId.WIZARD + 1,
+      0x1,
+      TileSpriteId.WIZARD + 2,
+      0x1,
+      -- Up
+      TileSpriteId.WIZARD,
+      0x0,
+      TileSpriteId.WIZARD,
+      0x1,
+      -- Down
+      TileSpriteId.WIZARD,
+      0x0,
+      TileSpriteId.WIZARD,
+      0x1,
+    },
   }
 }
 
@@ -464,12 +470,14 @@ end
 function MakeEnemy(enemy_type)
   local enemy = {}
 
-  assert(IsEnemyType(enemy_type))
-
   local direction = Direction.DOWN
   local to_tile = START_POS
 
-  local MAX_PROGRESS = 16
+  local enemy_info = ENEMY_INFO_MAP[enemy_type]
+  assert(enemy_info ~= nil)
+
+  assert(enemy_info.speed <= 1)
+  local MAX_PROGRESS = 1.0 / enemy_info.speed
   local progress = 0
 
   enemy_hold_map.occupy(to_tile)
@@ -480,11 +488,11 @@ function MakeEnemy(enemy_type)
     }
 
     progress += 1
-    if progress ~= MAX_PROGRESS then
+    if progress < MAX_PROGRESS then
       return result
     end
 
-    progress = 0
+    progress -= MAX_PROGRESS
 
     local from_tile = to_tile
     local prev_from_tile = PosAfter(from_tile, OPPOSITE_DIR[direction])
@@ -520,7 +528,7 @@ function MakeEnemy(enemy_type)
   function enemy.draw()
     local frame_parity = flr(time / 4) % 2
     local animation_offset = 1 + 4 * direction + 2 * frame_parity
-    local enemy_animation_map = ENEMY_SPRITE_ANIMATION_MAP[enemy_type]
+    local enemy_animation_map = enemy_info.animation_data
     local id = enemy_animation_map[animation_offset]
     local flips = enemy_animation_map[animation_offset + 1]
     local flip_x = (flips & 0x1) ~= 0
