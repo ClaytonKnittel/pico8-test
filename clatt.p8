@@ -250,13 +250,6 @@ function MakeGrid()
     return tiles[PosIndex(pos)]
   end
 
-  function add_to_enemy_grid(key, val)
-    if enemy_grid[key] == nil then
-      enemy_grid[key] = {}
-    end
-    add(enemy_grid[key], val)
-  end
-
   local function AllTilesReachableInPathMap(dir_map)
     for tile_index in enemy_hold_map.occupied_tiles() do
       if dir_map[tile_index] == nil then
@@ -1059,7 +1052,7 @@ function UpdateEntities()
 
   -- update enemy spatial grid
   for entity in entity_map.entities() do
-    if entity.type_id() == TypeId.ENEMY then
+    if IsEnemyType(entity.type_id()) then
       local e_pos = entity.pos()
       -- Hash them based on the integer grid cell they are currently floating over
       local grid_idx = Index(flr(e_pos.x), flr(e_pos.y))
