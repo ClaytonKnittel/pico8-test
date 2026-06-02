@@ -68,6 +68,8 @@ TILE_TYPE_TO_SPRITE = {
   [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING,
 }
 
+enemy_grid = {}
+
 START_POS = {
   x = 1,
   y = 0,
@@ -250,6 +252,13 @@ function MakeGrid()
     return tiles[PosIndex(pos)]
   end
 
+  function add_to_enemy_grid(key, val)
+    if enemy_grid[key] == nil then
+      enemy_grid[key] = {}
+    end
+    add(enemy_grid[key], val)
+  end
+
   local function AllTilesReachableInPathMap(dir_map)
     for tile_index in enemy_hold_map.occupied_tiles() do
       if dir_map[tile_index] == nil then
@@ -314,7 +323,7 @@ end
 
 ARROW_SPEED = 0.25
 
-function MakeArrow(start_pos, target_pos)
+function MakeArrow(start_pos, target_pos, damage)
   local arrow = {}
 
   local dt = 0
@@ -322,18 +331,28 @@ function MakeArrow(start_pos, target_pos)
   local delta = PosSub(target_pos, start_pos)
   local distance = PosMagnitude(delta)
   local delta_dir = PosNormalize(delta)
+  local pos = { x = start_pos.x, y = start_pos.y }
+
+  local hit_enemy = false
+
+  arrow["damage"] = damage
 
   function arrow.update()
     local result = {
       should_erase = false,
     }
 
-    if dt > distance then
+    if arrow.hit_enemy or dt > distance then
       result.should_erase = true
       return result
     end
 
     dt += ARROW_SPEED
+
+    local new_pos = PosAdd(start_pos, PosScale(delta_dir, dt))
+    pos.x = new_pos.x
+    pos.y = new_pos.y
+
     return result
   end
 
@@ -370,13 +389,16 @@ function MakeArrow(start_pos, target_pos)
   end
 
   function arrow.draw()
-    local pos = PosAdd(start_pos, PosScale(delta_dir, dt))
     local sprite = arrow_sprite(delta_dir)
     spr(sprite.id, TILE_WIDTH * (pos.x - 0.5), TILE_WIDTH * (pos.y - 0.5), 1, 1, sprite.flip_x, sprite.flip_y)
   end
 
   function arrow.type_id()
     return TypeId.ARROW
+  end
+
+  function arrow.pos()
+    return pos
   end
 
   return arrow
@@ -494,6 +516,11 @@ function MakeEnemy(enemy_type)
   assert(enemy_info.speed <= 1)
   local MAX_PROGRESS = 1.0 / enemy_info.speed
   local progress = 0
+  local health = 10
+  local hitbox_radius = 0.25
+
+  enemy["health"] = health
+  enemy["hitbox_radius"] = hitbox_radius
 
   enemy_hold_map.occupy(to_tile)
 
@@ -501,6 +528,13 @@ function MakeEnemy(enemy_type)
     local result = {
       should_erase = false,
     }
+
+    -- check for death
+    if enemy.health <= 0 then
+      result.should_erase = true
+      -- play death animation
+      return result
+    end
 
     progress += 1
     if progress < MAX_PROGRESS then
@@ -580,7 +614,7 @@ function MakeArcher(pos)
   local fire_rate = 10
   local fire_rate_cooldown = 0
   local frames = 0
-  local espp_rate = 0.15
+  local damage = 1
 
   function archer.update()
     local result = {
@@ -624,7 +658,7 @@ function MakeArcher(pos)
         local to_add = PosScale(DirDelta(enemy_dir), scale)
         target_pos = PosAdd(target_pos, to_add)
 
-        local arrow = MakeArrow(archer_pos, target_pos)
+        local arrow = MakeArrow(archer_pos, target_pos, damage)
         entity_map.spawn(arrow)
 
         fire_rate_cooldown = fire_rate
@@ -659,7 +693,8 @@ function MakePinwheel(pos)
 
   local fire_rate_cooldown = 0
   local frames = 0
-  local range = 2.5
+  local range = 2.25
+  local damage = 1
 
   -- sprinkler mode
   -- local spin_rate = 150
@@ -669,8 +704,7 @@ function MakePinwheel(pos)
   -- tic shooter mode
   local spin_rate = 0
   local n_directions = 12
-  local fire_rate = 10
-
+  local fire_rate = 14
 
   function pinwheel.update()
     local result = {
@@ -707,7 +741,8 @@ function MakePinwheel(pos)
           local offset_pos = { x = range * pos_x, y = range * pos_y }
           local target_pos = PosAdd(pinwheel.pos(), offset_pos)
 
-          entity_map.spawn(MakeArrow(pinwheel.pos(), target_pos))
+          local arrow = MakeArrow(pinwheel.pos(), target_pos, damage)
+          entity_map.spawn(arrow)
         end
         fire_rate_cooldown = fire_rate
       end
@@ -745,6 +780,8 @@ function MakeLightning(pos)
   local firing_length = 4
   local active_beam_frames = 0
   local frames = 0
+
+  local damage = 2
 
   local target_pixel_pos = { x = 0, y = 0 }
 
@@ -1017,8 +1054,47 @@ function DrawGrid()
 end
 
 function UpdateEntities()
+  -- clear enemy grid
+  enemy_grid = {}
+
   entity_map.update()
 
+  -- update enemy spatial grid
+  for entity in entity_map.entities() do
+    if entity.type_id() == TypeId.ENEMY then
+      local e_pos = entity.pos()
+      -- Hash them based on the integer grid cell they are currently floating over
+      local grid_idx = Index(flr(e_pos.x), flr(e_pos.y))
+      
+      if enemy_grid[grid_idx] == nil then
+        enemy_grid[grid_idx] = {}
+      end
+      add(enemy_grid[grid_idx], entity)
+    end
+  end
+
+  -- arrow collision
+  for entity in entity_map.entities() do
+    if entity.type_id() == TypeId.ARROW then
+      local arrow = entity
+      local arrow_pos = arrow.pos()
+      local arrow_idx = Index(flr(arrow_pos.x), flr(arrow_pos.y))
+      local enemies_under_fire = enemy_grid[arrow_idx]
+      if enemies_under_fire ~= nil then
+        for enemy in all(enemies_under_fire) do
+          local enemy_pos = enemy.pos()
+          local enemy_distance = PosMagnitude(PosSub(enemy_pos, arrow_pos))
+          if enemy_distance < enemy.hitbox_radius then
+            enemy.health -= arrow.damage
+            arrow.hit_enemy = true
+            -- hit animation?
+          end
+        end
+      end
+    end
+  end
+
+  -- spawn new waves
   if time % 100 == 99 then
     local enemy_id
     if flr(time / 100) % 2 == 0 then
@@ -1028,6 +1104,7 @@ function UpdateEntities()
     end
     entity_map.spawn(MakeEnemy(enemy_id))
   end
+
 end
 
 function DrawEntities()
@@ -1084,13 +1161,14 @@ function _init()
 end
 
 function _update()
+  cls(0) -- moving here for now to avoid prints being cleared
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
-  cls(0)
+  -- cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
