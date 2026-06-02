@@ -3,7 +3,7 @@ version 43
 __lua__
 
 DEBUG = true
-DEBUG_DISPLAY_DIR_MAP = true
+DEBUG_DISPLAY_DIR_MAP = false
 
 LEFT = 0
 RIGHT = 1
@@ -26,7 +26,7 @@ Direction = {
 
 TileSpriteId = {
   WALL = 0,
-  ENEMY = 2,
+  JELLYFISH = 2,
   CURSOR = 4,
   EXIT = 6,
   ENTRANCE = 7,
@@ -34,7 +34,8 @@ TileSpriteId = {
   ARROW = 9,
   PINWHEEL = 13,
   LIGHTNING = 14,
-  HUD_BG=15,
+  HUD_BG = 15,
+  WIZARD = 32,
 }
 
 TypeId = {
@@ -46,9 +47,10 @@ TypeId = {
   -- placed. --clayDawg
   ENEMY_HOLD = 4,
   ARCHER = 5,
-  ENEMY = 6,
-  PINWHEEL = 7,
-  LIGHTNING = 8,
+  PINWHEEL = 6,
+  LIGHTNING = 7,
+  JELLYFISH = 8,
+  WIZARD = 9,
 }
 
 START_POS = {
@@ -408,8 +410,61 @@ function MakeEnemyHoldMap()
   return enemy_hold_map
 end
 
-function MakeEnemy()
+function IsEnemyType(type_id)
+  return type_id == TypeId.JELLYFISH or type_id == TypeId.WIZARD
+end
+
+ENEMY_SPRITE_ANIMATION_MAP = {
+  [TypeId.JELLYFISH] = {
+    -- Left
+    TileSpriteId.JELLYFISH + 16,
+    0x1,
+    TileSpriteId.JELLYFISH + 17,
+    0x1,
+    -- Right
+    TileSpriteId.JELLYFISH + 16,
+    0x0,
+    TileSpriteId.JELLYFISH + 17,
+    0x0,
+    -- Up
+    TileSpriteId.JELLYFISH,
+    0x2,
+    TileSpriteId.JELLYFISH + 1,
+    0x2,
+    -- Down
+    TileSpriteId.JELLYFISH,
+    0x0,
+    TileSpriteId.JELLYFISH + 1,
+    0x0,
+  },
+  [TypeId.WIZARD] = {
+    -- Left
+    TileSpriteId.WIZARD + 1,
+    0x0,
+    TileSpriteId.WIZARD + 2,
+    0x0,
+    -- Right
+    TileSpriteId.WIZARD + 1,
+    0x1,
+    TileSpriteId.WIZARD + 2,
+    0x1,
+    -- Up
+    TileSpriteId.WIZARD,
+    0x0,
+    TileSpriteId.WIZARD,
+    0x1,
+    -- Down
+    TileSpriteId.WIZARD,
+    0x0,
+    TileSpriteId.WIZARD,
+    0x1,
+  }
+}
+
+function MakeEnemy(enemy_type)
   local enemy = {}
+
+  assert(IsEnemyType(enemy_type))
 
   local direction = Direction.DOWN
   local to_tile = START_POS
@@ -463,24 +518,20 @@ function MakeEnemy()
   end
 
   function enemy.draw()
-    local id = TileSpriteId.ENEMY + (time / 4) % 2
-    local flip_x = false
-    local flip_y = false
-    if direction == Direction.LEFT then
-      id += 16
-      flip_x = true
-    elseif direction == Direction.RIGHT then
-      id += 16
-    elseif direction == Direction.UP then
-      flip_y = true
-    end
+    local frame_parity = (time / 4) % 2
+    local animation_offset = 4 * direction + 2 * frame_parity
+    local enemy_animation_map = ENEMY_SPRITE_ANIMATION_MAP[enemy_type]
+    local id = enemy_animation_map[animation_offset]
+    local flips = enemy_animation_map[animation_offset + 1]
+    local flip_x = (flips & 0x1) ~= 0
+    local flip_y = (flips & 0x2) ~= 0
 
     local pos = corner_pos()
     spr(id, TILE_WIDTH * pos.x, TILE_WIDTH * pos.y, 1, 1, flip_x, flip_y)
   end
 
   function enemy.type_id()
-    return TypeId.ENEMY
+    return TypeId.JELLYFISH
   end
 
   function enemy.pos()
@@ -523,7 +574,7 @@ function MakeArcher(pos)
       local target_enemy = nil
       local target_enemy_distance = 32
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.ENEMY then
+        if entity.type_id() == TypeId.JELLYFISH then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
           if enemy_distance < range then
@@ -612,7 +663,7 @@ function MakePinwheel(pos)
     local will_fire = false
     if fire_rate_cooldown == 0 then
       for entity in entity_map.entities() do
-        if not will_fire and entity.type_id() == TypeId.ENEMY then
+        if not will_fire and entity.type_id() == TypeId.JELLYFISH then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, pinwheel.pos()))
           if enemy_distance < range then
@@ -693,7 +744,7 @@ function MakeLightning(pos)
       local target_enemy = nil
       local target_enemy_distance = 999
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.ENEMY then
+        if entity.type_id() == TypeId.JELLYFISH then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
           if enemy_distance < range then
