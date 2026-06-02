@@ -36,6 +36,7 @@ TileSpriteId = {
   LIGHTNING = 14,
   HUD_BG = 15,
   WIZARD = 32,
+  HUD_BORDER = 48,
 }
 
 TypeId = {
@@ -53,15 +54,18 @@ TypeId = {
   WIZARD = 9,
 }
 
-enemy_grid = {}
+PLACEABLE_TILES = {
+  TypeId.WALL,
+  TypeId.ARCHER,
+  TypeId.PINWHEEL,
+  TypeId.LIGHTNING,
+}
 
-selected_tower = TypeId.WALL
-
-time = 0
-
-cursor_pos = {
-  x = 0,
-  y = 0,
+TILE_TYPE_TO_SPRITE = {
+  [TypeId.WALL] = TileSpriteId.WALL,
+  [TypeId.ARCHER] = TileSpriteId.ARCHER,
+  [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
+  [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING,
 }
 
 START_POS = {
@@ -244,13 +248,6 @@ function MakeGrid()
 
   function grid.tile(pos)
     return tiles[PosIndex(pos)]
-  end
-
-  function add_to_enemy_grid(key, val)
-    if enemy_grid[key] == nil then
-      enemy_grid[key] = {}
-    end
-    add(enemy_grid[key], val)
   end
 
   local function AllTilesReachableInPathMap(dir_map)
@@ -495,7 +492,7 @@ ENEMY_INFO_MAP = {
 }
 
 function IsEnemyType(type_id)
-  return ENEMY_SPRITE_ANIMATION_MAP[type_id] ~= nil
+  return ENEMY_INFO_MAP[type_id] ~= nil
 end
 
 function MakeEnemy(enemy_type)
@@ -625,7 +622,7 @@ function MakeArcher(pos)
       local target_enemy = nil
       local target_enemy_distance = 32
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.JELLYFISH then
+        if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
           if enemy_distance < range then
@@ -714,7 +711,7 @@ function MakePinwheel(pos)
     local will_fire = false
     if fire_rate_cooldown == 0 then
       for entity in entity_map.entities() do
-        if not will_fire and entity.type_id() == TypeId.JELLYFISH then
+        if not will_fire and IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, pinwheel.pos()))
           if enemy_distance < range then
@@ -798,7 +795,7 @@ function MakeLightning(pos)
       local target_enemy = nil
       local target_enemy_distance = 999
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.JELLYFISH then
+        if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
           if enemy_distance < range then
@@ -960,7 +957,8 @@ function UpdateInput()
   -- Place tower
   if Pressed(BTN_Z) then
     local grid_tile_type = grid.tile(cursor_pos)
-    local selected_tower_type = selected_tower
+    local selected_tower_type = PLACEABLE_TILES[selected_tower_index]
+    assert(selected_tower_type ~= nil)
 
     if grid_tile_type == TypeId.EMPTY then
       local added = grid.try_set_tile(cursor_pos, selected_tower_type)
@@ -984,14 +982,10 @@ function UpdateInput()
 
   -- Scroll to next tower option
   if Pressed(BTN_X) then
-    if selected_tower == TypeId.WALL then
-      selected_tower = TypeId.ARCHER
-    elseif selected_tower == TypeId.ARCHER then
-      selected_tower = TypeId.PINWHEEL
-    elseif selected_tower == TypeId.PINWHEEL then
-      selected_tower = TypeId.LIGHTNING
+    if selected_tower_index == #PLACEABLE_TILES then
+      selected_tower_index = 1
     else
-      selected_tower = TypeId.WALL
+      selected_tower_index += 1
     end
   end
 end
@@ -1058,7 +1052,7 @@ function UpdateEntities()
 
   -- update enemy spatial grid
   for entity in entity_map.entities() do
-    if entity.type_id() == TypeId.ENEMY then
+    if IsEnemyType(entity.type_id()) then
       local e_pos = entity.pos()
       -- Hash them based on the integer grid cell they are currently floating over
       local grid_idx = Index(flr(e_pos.x), flr(e_pos.y))
@@ -1108,6 +1102,20 @@ function DrawEntities()
   entity_map.draw()
 end
 
+function DrawHUD()
+  local hud_y = WORLD_HEIGHT * TILE_WIDTH
+
+  for x = 0, WORLD_WIDTH - 1 do
+    spr(TileSpriteId.HUD_BORDER, x * TILE_WIDTH, hud_y)
+  end
+
+  for index, type_id in ipairs(PLACEABLE_TILES) do
+    spr(TILE_TYPE_TO_SPRITE[type_id], index * TILE_WIDTH, hud_y + TILE_WIDTH)
+  end
+
+  spr(TileSpriteId.CURSOR + 1, selected_tower_index * TILE_WIDTH, hud_y + TILE_WIDTH)
+end
+
 function DrawDebugStats()
   if not DEBUG then
     return
@@ -1120,28 +1128,12 @@ function DrawDebugStats()
   print("ids: "..entity_map.num_allocated_ids(), 84, 16)
 end
 
-function DrawSelectedTowerHUD()
-  -- TODO can generate inverse map 
-  local type_to_sprite = {
-    [TypeId.WALL] = TileSpriteId.WALL,
-    [TypeId.ARCHER] = TileSpriteId.ARCHER,
-    [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
-    [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING
-  }
-  
-  local sprite_id = type_to_sprite[selected_tower]
-  if sprite_id then
-    spr(TileSpriteId.HUD_BG, 2, 118)
-    spr(sprite_id, 2, 118)
-  end
-end
-
 function _init()
   if not DEBUG then
     music(0)
   end
 
-  selected_tower = TypeId.WALL
+  selected_tower_index = 1
 
   time = 0
 
@@ -1157,6 +1149,8 @@ function _init()
   enemy_hold_map = MakeEnemyHoldMap()
 
   entity_map = MakeEntityMap()
+
+  enemy_grid = {}
 end
 
 function _update()
@@ -1171,7 +1165,7 @@ function _draw()
   DrawGrid()
   DrawEntities()
   DrawCursor()
-  DrawSelectedTowerHUD()
+  DrawHUD()
   DrawDebugStats()
 end
 
@@ -1200,11 +1194,11 @@ __gfx__
 00022300000223000032200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00099000000990000009900000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00099900000990000009990000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+55555555000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+25252525000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+02020202000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00200020000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+20002000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
