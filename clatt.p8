@@ -1084,6 +1084,7 @@ function UpdateEntities()
           if enemy_distance < enemy.hitbox_radius then
             enemy.health -= arrow.damage
             arrow.hit_enemy = true
+            -- hit animation?
           end
         end
       end
@@ -1159,25 +1160,20 @@ function _init()
 end
 
 function _update()
-  cls(0)
+  cls(0) -- moving here for now to avoid prints being cleared
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
+  -- cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
   DrawSelectedTowerHUD()
   DrawDebugStats()
 end
-
-function Initialize()
-  music(0)
-end
-
-Initialize()
 
 __gfx__
 77777776777777760000000000000000770770777700007700000000022222200000000000000000000000000000000000000000000600000076660011111111
