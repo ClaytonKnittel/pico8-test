@@ -36,6 +36,7 @@ TileSpriteId = {
   LIGHTNING = 14,
   HUD_BG = 15,
   WIZARD = 32,
+  HUD_BORDER = 48,
 }
 
 TypeId = {
@@ -1022,6 +1023,26 @@ function DrawEntities()
   entity_map.draw()
 end
 
+function DrawHud()
+  -- TODO can generate inverse map 
+  local type_to_sprite = {
+    [TypeId.WALL] = TileSpriteId.WALL,
+    [TypeId.ARCHER] = TileSpriteId.ARCHER,
+    [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
+    [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING
+  }
+
+  for x in 0, WORLD_WIDTH - 1 do
+    spr(TileSpriteId.HUD_BORDER, x * TILE_WIDTH, WORLD_HEIGHT * TILE_WIDTH)
+  end
+
+  local sprite_id = type_to_sprite[selected_tower]
+  if sprite_id then
+    spr(TileSpriteId.HUD_BG, 2, 118)
+    spr(sprite_id, 2, 118)
+  end
+end
+
 function DrawDebugStats()
   if not DEBUG then
     return
@@ -1032,22 +1053,6 @@ function DrawDebugStats()
   local cpu = stat(1) * 100
   print("cpu%: "..cpu.."%", 84, 8)
   print("ids: "..entity_map.num_allocated_ids(), 84, 16)
-end
-
-function DrawSelectedTowerHUD()
-  -- TODO can generate inverse map 
-  local type_to_sprite = {
-    [TypeId.WALL] = TileSpriteId.WALL,
-    [TypeId.ARCHER] = TileSpriteId.ARCHER,
-    [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
-    [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING
-  }
-  
-  local sprite_id = type_to_sprite[selected_tower]
-  if sprite_id then
-    spr(TileSpriteId.HUD_BG, 2, 118)
-    spr(sprite_id, 2, 118)
-  end
 end
 
 function _init()
@@ -1084,7 +1089,7 @@ function _draw()
   DrawGrid()
   DrawEntities()
   DrawCursor()
-  DrawSelectedTowerHUD()
+  DrawHUD()
   DrawDebugStats()
 end
 
