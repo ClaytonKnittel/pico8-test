@@ -68,8 +68,6 @@ TILE_TYPE_TO_SPRITE = {
   [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING,
 }
 
-enemy_grid = {}
-
 START_POS = {
   x = 1,
   y = 0,
@@ -1158,6 +1156,8 @@ function _init()
   enemy_hold_map = MakeEnemyHoldMap()
 
   entity_map = MakeEntityMap()
+
+  enemy_grid = {}
 end
 
 function _update()
