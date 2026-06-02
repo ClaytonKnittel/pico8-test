@@ -479,7 +479,7 @@ ENEMY_INFO_MAP = {
 }
 
 function IsEnemyType(type_id)
-  return ENEMY_SPRITE_ANIMATION_MAP[type_id] ~= nil
+  return ENEMY_INFO_MAP[type_id] ~= nil
 end
 
 function MakeEnemy(enemy_type)
@@ -597,7 +597,7 @@ function MakeArcher(pos)
       local target_enemy = nil
       local target_enemy_distance = 32
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.JELLYFISH then
+        if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
           if enemy_distance < range then
@@ -686,7 +686,7 @@ function MakePinwheel(pos)
     local will_fire = false
     if fire_rate_cooldown == 0 then
       for entity in entity_map.entities() do
-        if not will_fire and entity.type_id() == TypeId.JELLYFISH then
+        if not will_fire and IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, pinwheel.pos()))
           if enemy_distance < range then
@@ -767,7 +767,7 @@ function MakeLightning(pos)
       local target_enemy = nil
       local target_enemy_distance = 999
       for entity in entity_map.entities() do
-        if entity.type_id() == TypeId.JELLYFISH then
+        if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
           if enemy_distance < range then
