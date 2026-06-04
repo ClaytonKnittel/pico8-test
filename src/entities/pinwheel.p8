@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakePinwheel(pos)
   local pinwheel = {}
 
@@ -18,7 +21,7 @@ function MakePinwheel(pos)
 
   function pinwheel.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
     if grid.tile(pos) ~= TypeId.PINWHEEL then
       result.should_erase = true
@@ -74,7 +77,7 @@ function MakePinwheel(pos)
   function pinwheel.pos()
     return {
       x = pos.x + 0.5,
-      y = pos.y + 0.5,
+      y = pos.y + 0.5
     }
   end
 

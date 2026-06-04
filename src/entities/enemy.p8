@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 ENEMY_INFO_MAP = {
   [TypeId.JELLYFISH] = {
     speed = 0.08,
@@ -21,8 +24,8 @@ ENEMY_INFO_MAP = {
       TileSpriteId.JELLYFISH,
       0x0,
       TileSpriteId.JELLYFISH + 1,
-      0x0,
-    },
+      0x0
+    }
   },
   [TypeId.WIZARD] = {
     speed = 0.06,
@@ -46,8 +49,8 @@ ENEMY_INFO_MAP = {
       TileSpriteId.WIZARD,
       0x0,
       TileSpriteId.WIZARD,
-      0x1,
-    },
+      0x1
+    }
   }
 }
 
@@ -77,7 +80,7 @@ function MakeEnemy(enemy_type)
 
   function enemy.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
 
     local prev_from_tile = PosAfter(to_tile, OPPOSITE_DIR[direction])

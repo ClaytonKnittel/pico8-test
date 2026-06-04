@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakeLightning(pos)
   local lightning = {}
 
@@ -14,7 +17,7 @@ function MakeLightning(pos)
 
   function lightning.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
     if grid.tile(pos) ~= TypeId.LIGHTNING then
       result.should_erase = true
@@ -74,7 +77,7 @@ function MakeLightning(pos)
   function lightning.pos()
     return {
       x = pos.x + 0.5,
-      y = pos.y + 0.5,
+      y = pos.y + 0.5
     }
   end
 

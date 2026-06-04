@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 ARROW_SPEED = 0.25
 
 function MakeArrow(start_pos, target_pos, damage)
@@ -16,7 +19,7 @@ function MakeArrow(start_pos, target_pos, damage)
 
   function arrow.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
 
     if arrow.hit_enemy or dt > distance then
@@ -61,7 +64,7 @@ function MakeArrow(start_pos, target_pos, damage)
     return {
       id = id,
       flip_x = flip_x,
-      flip_y = flip_y,
+      flip_y = flip_y
     }
   end
 
