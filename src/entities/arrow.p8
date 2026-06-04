@@ -8,10 +8,10 @@ function MakeArrow(start_pos, target_pos, damage)
 
   local dt = 0
 
-  local delta = PosSub(target_pos, start_pos)
+  local delta = target_pos - start_pos
   local distance = PosMagnitude(delta)
   local delta_dir = PosNormalize(delta)
-  local pos = { x = start_pos.x, y = start_pos.y }
+  local pos = MakePos(start_pos.x, start_pos.y)
 
   local hit_enemy = false
 
@@ -29,7 +29,7 @@ function MakeArrow(start_pos, target_pos, damage)
 
     dt += ARROW_SPEED
 
-    local new_pos = PosAdd(start_pos, PosScale(delta_dir, dt))
+    local new_pos = start_pos + PosScale(delta_dir, dt)
     pos.x = new_pos.x
     pos.y = new_pos.y
 

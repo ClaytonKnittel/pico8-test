@@ -129,9 +129,7 @@ function MakeEnemy(enemy_type)
     local x = to_tile.x
     local y = to_tile.y
     local delta = DirDelta(direction)
-    x -= delta.x * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    y -= delta.y * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    return { x = x, y = y }
+    return to_tile - PosScale(delta, (MAX_PROGRESS - progress - 1) / MAX_PROGRESS)
   end
 
   function enemy.draw()
@@ -153,7 +151,7 @@ function MakeEnemy(enemy_type)
 
   function enemy.pos()
     local pos = corner_pos()
-    return { x = pos.x + 0.5, y = pos.y + 0.5 }
+    return MakePos(pos.x + 0.5, pos.y + 0.5)
   end
 
   function enemy.direction()
