@@ -112,7 +112,7 @@ function UpdateEntities()
       if enemies_under_fire ~= nil then
         for enemy in all(enemies_under_fire) do
           local enemy_pos = enemy.pos()
-          local enemy_distance = PosMagnitude(PosSub(enemy_pos, arrow_pos))
+          local enemy_distance = PosMagnitude(enemy_pos - arrow_pos)
           if enemy_distance < enemy.hitbox_radius then
             enemy.health -= arrow.damage
             arrow.hit_enemy = true

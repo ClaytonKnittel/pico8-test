@@ -13,7 +13,7 @@ function MakeLightning(pos)
 
   local damage = 2
 
-  local target_pixel_pos = { x = 0, y = 0 }
+  local target_pixel_pos = MakePos(0, 0)
 
   function lightning.update()
     local result = {
@@ -36,7 +36,7 @@ function MakeLightning(pos)
       for entity in entity_map.entities() do
         if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
-          local enemy_distance = PosMagnitude(PosSub(enemy_pos, lightning.pos()))
+          local enemy_distance = PosMagnitude(enemy_pos - lightning.pos())
           if enemy_distance < range then
             if enemy_distance < target_enemy_distance then
               target_enemy_distance = enemy_distance
@@ -47,8 +47,7 @@ function MakeLightning(pos)
       end
 
       if target_enemy != nil then
-        target_pixel_pos.x = target_enemy.pos().x * TILE_WIDTH
-        target_pixel_pos.y = target_enemy.pos().y * TILE_WIDTH
+        target_pixel_pos = PosScale(target_enemy.pos(), TILE_WIDTH)
         active_beam_frames = firing_length
         fire_rate_cooldown = fire_rate
       end
@@ -75,10 +74,10 @@ function MakeLightning(pos)
   end
 
   function lightning.pos()
-    return {
-      x = pos.x + 0.5,
-      y = pos.y + 0.5
-    }
+    return MakePos(
+      pos.x + 0.5,
+      pos.y + 0.5
+    )
   end
 
   return lightning
