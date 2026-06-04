@@ -38,35 +38,58 @@ function EnemyCanOccupyPos(pos)
 end
 
 function UpdateInput()
-  local FREQ = 4
+  local INITIAL_DELAY = 10
+  local REPEAT_DELAY = 4
 
-  for i, timer in ipairs(button_timers) do
-    button_timers[i] = max(button_timers[i] - 1, 0)
-  end
+  local REPEAT_OFFSET = 64
 
-  function Pressed(button)
-    local pressed = btn(button) and button_timers[button + 1] == 0
-    if pressed then
-      button_timers[button + 1] = FREQ
+  local buttons = {
+    btn(0),
+    btn(1),
+    btn(2),
+    btn(3),
+    btn(4),
+    btn(5)
+  }
+
+  local pressed = {}
+
+  for i, time in ipairs(button_timers) do
+    if not buttons[i] then
+      button_timers[i] = 0
+    elseif time == 0 then
+      pressed[i] = true
+      button_timers[i] = INITIAL_DELAY + 1
+    elseif time == 1 then
+      pressed[i] = true
+      button_timers[i] += REPEAT_DELAY
+    else
+      button_timers[i] -= 1
     end
-    return pressed
   end
 
-  if Pressed(LEFT) then
+  local left = pressed[LEFT + 1]
+  local right = pressed[RIGHT + 1]
+  local up = pressed[UP + 1]
+  local down = pressed[DOWN + 1]
+  local btn_z = pressed[BTN_Z + 1]
+  local btn_x = pressed[BTN_X + 1]
+
+  if left then
     cursor_pos.x = max(cursor_pos.x - 1, 0)
   end
-  if Pressed(RIGHT) then
+  if right then
     cursor_pos.x = min(cursor_pos.x + 1, WORLD_WIDTH - 1)
   end
-  if Pressed(UP) then
+  if up then
     cursor_pos.y = max(cursor_pos.y - 1, 0)
   end
-  if Pressed(DOWN) then
+  if down then
     cursor_pos.y = min(cursor_pos.y + 1, WORLD_HEIGHT - 1)
   end
 
   -- Place tower
-  if Pressed(BTN_Z) then
+  if btn_z then
     local grid_tile_type = grid.tile(cursor_pos)
     local selected_tower_type = PLACEABLE_TILES[selected_tower_index]
     assert(selected_tower_type ~= nil)
@@ -92,7 +115,7 @@ function UpdateInput()
   end
 
   -- Scroll to next tower option
-  if Pressed(BTN_X) then
+  if btn_x then
     if selected_tower_index == #PLACEABLE_TILES then
       selected_tower_index = 1
     else
