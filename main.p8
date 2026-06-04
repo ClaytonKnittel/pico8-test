@@ -146,7 +146,6 @@ function _init()
 end
 
 function _update()
-  cls(0)
   -- moving here for now to avoid prints being cleared
   UpdateInput()
   UpdateEntities()
@@ -154,7 +153,7 @@ function _update()
 end
 
 function _draw()
-  -- cls(0)
+  cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
