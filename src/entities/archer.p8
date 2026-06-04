@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakeArcher(pos)
   local archer = {}
 
@@ -9,7 +12,7 @@ function MakeArcher(pos)
 
   function archer.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
     if grid.tile(pos) ~= TypeId.ARCHER then
       result.should_erase = true
@@ -72,7 +75,7 @@ function MakeArcher(pos)
   function archer.pos()
     return {
       x = pos.x + 0.5,
-      y = pos.y + 0.5,
+      y = pos.y + 0.5
     }
   end
 

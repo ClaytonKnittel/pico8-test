@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 TileSpriteId = {
   WALL = 0,
   JELLYFISH = 2,
@@ -10,5 +13,5 @@ TileSpriteId = {
   LIGHTNING = 14,
   HUD_BG = 15,
   WIZARD = 32,
-  HUD_BORDER = 48,
+  HUD_BORDER = 48
 }

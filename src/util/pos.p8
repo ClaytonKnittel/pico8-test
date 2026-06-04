@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function PosIndex(pos)
   return Index(pos.x, pos.y)
 end
@@ -17,7 +20,7 @@ function DirDelta(dir)
   end
   return {
     x = dx,
-    y = dy,
+    y = dy
   }
 end
 
@@ -25,7 +28,7 @@ function PosAfter(pos, dir)
   local delta = DirDelta(dir)
   return {
     x = pos.x + delta.x,
-    y = pos.y + delta.y,
+    y = pos.y + delta.y
   }
 end
 
@@ -40,21 +43,21 @@ end
 function PosAdd(pos1, pos2)
   return {
     x = pos1.x + pos2.x,
-    y = pos1.y + pos2.y,
+    y = pos1.y + pos2.y
   }
 end
 
 function PosSub(pos1, pos2)
   return {
     x = pos1.x - pos2.x,
-    y = pos1.y - pos2.y,
+    y = pos1.y - pos2.y
   }
 end
 
 function PosScale(pos, scale)
   return {
     x = pos.x * scale,
-    y = pos.y * scale,
+    y = pos.y * scale
   }
 end
 

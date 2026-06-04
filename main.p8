@@ -1,11 +1,16 @@
 pico-8 cartridge // http://www.pico-8.com
 version 43
 __lua__
-
 DEBUG = false
 DEBUG_DISPLAY_DIR_MAP = false
 
-#include src/util/input.p8
+LEFT = 0
+RIGHT = 1
+UP = 2
+DOWN = 3
+BTN_Z = 4
+BTN_X = 5
+
 #include src/util/direction.p8
 #include src/util/pos.p8
 
@@ -71,13 +76,13 @@ function UpdateInput()
       if added then
         local tower_pos = {
           x = cursor_pos.x,
-          y = cursor_pos.y,
+          y = cursor_pos.y
         }
         if selected_tower_type == TypeId.ARCHER then
           entity_map.spawn(MakeArcher(tower_pos))
         elseif selected_tower_type == TypeId.PINWHEEL then
           entity_map.spawn(MakePinwheel(tower_pos))
-        elseif selected_tower_type == TypeId.LIGHTNING then 
+        elseif selected_tower_type == TypeId.LIGHTNING then
           entity_map.spawn(MakeLightning(tower_pos))
         end
       end
@@ -109,10 +114,10 @@ function DrawDebugStats()
   end
 
   local mem = stat(0) * 100 / 2048
-  print("mem%: "..mem.."%", 84, 0)
+  print("mem%: " .. mem .. "%", 84, 0)
   local cpu = stat(1) * 100
-  print("cpu%: "..cpu.."%", 84, 8)
-  print("ids: "..entity_map.num_allocated_ids(), 84, 16)
+  print("cpu%: " .. cpu .. "%", 84, 8)
+  print("ids: " .. entity_map.num_allocated_ids(), 84, 16)
 end
 
 function _init()
@@ -126,7 +131,7 @@ function _init()
 
   cursor_pos = {
     x = 0,
-    y = 0,
+    y = 0
   }
 
   button_timers = { 0, 0, 0, 0, 0, 0 }
@@ -141,7 +146,8 @@ function _init()
 end
 
 function _update()
-  cls(0) -- moving here for now to avoid prints being cleared
+  -- moving here for now to avoid prints being cleared
+  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
