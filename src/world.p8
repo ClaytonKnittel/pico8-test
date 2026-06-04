@@ -1,0 +1,18 @@
+TILE_WIDTH = 8
+
+WORLD_WIDTH = 16
+WORLD_HEIGHT = 14
+
+START_POS = {
+  x = 1,
+  y = 0,
+}
+
+END_POS = {
+  x = WORLD_WIDTH - 1,
+  y = WORLD_HEIGHT - 1,
+}
+OFFSCREEN_END_POS = {
+  x = WORLD_WIDTH - 1,
+  y = WORLD_HEIGHT,
+}
