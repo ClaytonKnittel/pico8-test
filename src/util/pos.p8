@@ -32,6 +32,10 @@ function MakePos(x, y)
   )
 end
 
+function Index(x, y)
+  return x + y * WORLD_WIDTH + 1
+end
+
 function PosIndex(pos)
   return pos.x + pos.y * WORLD_WIDTH + 1
 end
