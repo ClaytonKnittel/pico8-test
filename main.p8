@@ -147,13 +147,14 @@ end
 
 function _update()
   -- moving here for now to avoid prints being cleared
+  cls(0)
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
-  cls(0)
+  -- cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()
