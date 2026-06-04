@@ -186,3 +186,8 @@ function DrawGrid()
     end
   end
 end
+
+function EnemyCanOccupyPos(pos)
+  local tile = grid.tile(pos)
+  return OCCUPIABLE_TILES[tile]
+end
