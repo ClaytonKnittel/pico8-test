@@ -1,0 +1,2 @@
+GOLD = 100
+HEALTH = 10

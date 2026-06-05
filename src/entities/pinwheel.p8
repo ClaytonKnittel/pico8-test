@@ -5,6 +5,7 @@ function MakePinwheel(pos)
   local frames = 0
   local range = 2.25
   local damage = 1
+  local cost = 10
 
   -- sprinkler mode
   -- local spin_rate = 150
