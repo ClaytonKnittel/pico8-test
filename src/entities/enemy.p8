@@ -60,13 +60,6 @@ ENEMY_INFO_MAP = {
   }
 }
 
-DIR_FLIPS = {
-  [Direction.LEFT]  = {true,  false},
-  [Direction.RIGHT] = {false, false},
-  [Direction.UP]    = {false, true},
-  [Direction.DOWN]  = {false, true}
-}
-
 function IsEnemyType(type_id)
   return ENEMY_INFO_MAP[type_id] ~= nil
 end
