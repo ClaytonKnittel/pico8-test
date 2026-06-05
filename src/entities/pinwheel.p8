@@ -6,8 +6,9 @@ function MakePinwheel(pos)
 
   local fire_rate_cooldown = 0
   local frames = 0
-  local range = 2.25
+  local range = 1.8
   local damage = 1
+  local cost = 10
 
   -- sprinkler mode
   -- local spin_rate = 150
@@ -36,7 +37,7 @@ function MakePinwheel(pos)
         if not will_fire and IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
           local enemy_distance = PosMagnitude(enemy_pos - pinwheel.pos())
-          if enemy_distance < range then
+          if enemy_distance < range+0.25 then
             will_fire = true
           end
         end

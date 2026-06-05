@@ -3,15 +3,22 @@ version 43
 __lua__
 TileSpriteId = {
   WALL = 0,
-  JELLYFISH = 2,
-  CURSOR = 4,
-  EXIT = 6,
-  ENTRANCE = 7,
-  ARCHER = 8,
-  ARROW = 9,
-  PINWHEEL = 13,
-  LIGHTNING = 14,
-  HUD_BG = 15,
-  WIZARD = 32,
-  HUD_BORDER = 48
+  ARCHER = 2, 
+  PINWHEEL = 3,
+  LIGHTNING = 4,
+  SPAWNER = 5,
+
+  CURSOR = 16,
+  DEMOLISH = 18,
+  EXIT = 19,
+  ENTRANCE = 20,
+
+  ARROW = 48,
+
+  GOLD = 52,
+  HEART = 53,
+  HUD_BORDER = 54,
+
+  JELLYFISH = 64,
+  WIZARD = 96,
 }

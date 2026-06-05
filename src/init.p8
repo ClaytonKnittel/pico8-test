@@ -58,19 +58,24 @@ function UpdateInput()
     local selected_tower_type = PLACEABLE_TILES[selected_tower_index]
     assert(selected_tower_type ~= nil)
 
-    if grid_tile_type == TypeId.EMPTY then
-      local added = grid.try_set_tile(cursor_pos, selected_tower_type)
-      if added then
-        local tower_pos = {
-          x = cursor_pos.x,
-          y = cursor_pos.y
-        }
-        if selected_tower_type == TypeId.ARCHER then
-          entity_map.spawn(MakeArcher(tower_pos))
-        elseif selected_tower_type == TypeId.PINWHEEL then
-          entity_map.spawn(MakePinwheel(tower_pos))
-        elseif selected_tower_type == TypeId.LIGHTNING then
-          entity_map.spawn(MakeLightning(tower_pos))
+    if grid_tile_type == TypeId.EMPTY then      
+      -- Check gold & build
+      local current_cost = TOWER_COST[selected_tower_type] or 0
+      if GOLD >= current_cost then
+        local added = grid.try_set_tile(cursor_pos, selected_tower_type)
+        if added then
+          GOLD -= current_cost
+          local tower_pos = {
+            x = cursor_pos.x,
+            y = cursor_pos.y,
+          }
+          if selected_tower_type == TypeId.ARCHER then
+            entity_map.spawn(MakeArcher(tower_pos))
+          elseif selected_tower_type == TypeId.PINWHEEL then
+            entity_map.spawn(MakePinwheel(tower_pos))
+          elseif selected_tower_type == TypeId.LIGHTNING then 
+            entity_map.spawn(MakeLightning(tower_pos))
+          end
         end
       end
     elseif grid_tile_type == selected_tower_type then
@@ -100,11 +105,13 @@ function DrawDebugStats()
     return
   end
 
+  local debug_x = 84
+  local debug_y = 1
   local mem = stat(0) * 100 / 2048
-  print("mem%: " .. mem .. "%", 84, 0)
+  print("mem%: "..mem.."%", debug_x, debug_y, 7)
   local cpu = stat(1) * 100
-  print("cpu%: " .. cpu .. "%", 84, 8)
-  print("ids: " .. entity_map.num_allocated_ids(), 84, 16)
+  print("cpu%: "..cpu.."%", debug_x, 8+debug_y, 7)
+  print("ids: "..entity_map.num_allocated_ids(), debug_x, 16+debug_y, 7)
 end
 
 function _init()
@@ -118,7 +125,7 @@ function _init()
 
   cursor_pos = {
     x = 0,
-    y = 0
+    y = 0,
   }
 
   button_timers = { 0, 0, 0, 0, 0, 0 }
@@ -133,15 +140,13 @@ function _init()
 end
 
 function _update()
-  -- moving here for now to avoid prints being cleared
-  cls(0)
+  cls(3) -- dark green
   UpdateInput()
   UpdateEntities()
   time += 1
 end
 
 function _draw()
-  -- cls(0)
   DrawGrid()
   DrawEntities()
   DrawCursor()

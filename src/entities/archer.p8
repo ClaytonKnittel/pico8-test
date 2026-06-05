@@ -9,6 +9,7 @@ function MakeArcher(pos)
   local fire_rate_cooldown = 0
   local frames = 0
   local damage = 1
+  local cost = 10
 
   function archer.update()
     local result = {

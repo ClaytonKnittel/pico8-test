@@ -9,6 +9,7 @@ function MakeLightning(pos)
   local fire_rate_cooldown = 0
   local firing_length = 4
   local active_beam_frames = 0
+  local cost = 20
   local frames = 0
 
   local damage = 2
