@@ -12,12 +12,12 @@ ENEMY_INFO_MAP = {
       0x0,
       TileSpriteId.JELLYFISH + 1,
       0x0,
-      -- Up (Row 1 unique vertical sprites)
+      -- Up
       TileSpriteId.JELLYFISH + 16,
       0x0,
       TileSpriteId.JELLYFISH + 17,
       0x0,
-      -- Down (Row 1 unique vertical sprites, optionally flipped vertically if desired)
+      -- Down
       TileSpriteId.JELLYFISH + 16,
       0x2,
       TileSpriteId.JELLYFISH + 17,
@@ -81,7 +81,7 @@ function MakeEnemy(enemy_type)
   local MAX_PROGRESS = 1.0 / enemy_info.speed
   local progress = 0
   local health = 10
-  local hitbox_radius = 0.25
+  local hitbox_radius = 0.4
 
   local is_dying = false
   local death_timer = 0
@@ -166,16 +166,10 @@ function MakeEnemy(enemy_type)
     local pos = corner_pos()
 
     if is_dying then
-      local current_frame = flr(death_timer / death_speed)
-      
-      -- clamp frame sequence so it rests extra long on the final step
-      if current_frame >= enemy_info.death_len then
-        current_frame = enemy_info.death_len - 1
-      end
-
+      local current_frame = flr(death_timer / death_speed)      
       local id = enemy_info.death_start + current_frame
       
-      -- JELLYFISH SPECIFIC ROW SHIFT FOR VERTICAL EXPLOSIONS
+      -- change orientation
       if enemy_type == TypeId.JELLYFISH and (direction == Direction.UP or direction == Direction.DOWN) then
         id += 16
       end

@@ -17,11 +17,11 @@ function DrawHUD()
   spr(TileSpriteId.CURSOR + 1, selection_x + (selected_tower_index-1) * (TILE_WIDTH+2), hud_data_y)
 
   -- data
-  data_x = 85
+  data_x = 83
   spr(TileSpriteId.GOLD, data_x, hud_data_y)
-  print(GOLD, data_x+8, hud_data_y+2, 7)
+  print(GOLD, data_x+9, hud_data_y+2, 7)
 
-  spr(TileSpriteId.HEART, data_x + 22, hud_data_y)
-  print(HEALTH, data_x+9 + 22, hud_data_y+2, 7)
+  spr(TileSpriteId.HEART, data_x + 23, hud_data_y)
+  print(HEALTH, data_x+10 + 23, hud_data_y+2, 7)
   
 end

@@ -68,32 +68,30 @@ function UpdateInput()
     local selected_tower_type = PLACEABLE_TILES[selected_tower_index]
     assert(selected_tower_type ~= nil)
 
-    if grid_tile_type == TypeId.EMPTY then
-        -- Dynamic cost lookup directly from your centralized file
-        local current_cost = TOWER_COST[selected_tower_type] or 0
-
-        -- Build
-        if GOLD >= current_cost then
-          local added = grid.try_set_tile(cursor_pos, selected_tower_type)
-          if added then
-            GOLD -= current_cost
-            local tower_pos = {
-              x = cursor_pos.x,
-              y = cursor_pos.y,
-            }
-            if selected_tower_type == TypeId.ARCHER then
-              entity_map.spawn(MakeArcher(tower_pos))
-            elseif selected_tower_type == TypeId.PINWHEEL then
-              entity_map.spawn(MakePinwheel(tower_pos))
-            elseif selected_tower_type == TypeId.LIGHTNING then 
-              entity_map.spawn(MakeLightning(tower_pos))
-            end
+    if grid_tile_type == TypeId.EMPTY then      
+      -- Check gold & build
+      local current_cost = TOWER_COST[selected_tower_type] or 0
+      if GOLD >= current_cost then
+        local added = grid.try_set_tile(cursor_pos, selected_tower_type)
+        if added then
+          GOLD -= current_cost
+          local tower_pos = {
+            x = cursor_pos.x,
+            y = cursor_pos.y,
+          }
+          if selected_tower_type == TypeId.ARCHER then
+            entity_map.spawn(MakeArcher(tower_pos))
+          elseif selected_tower_type == TypeId.PINWHEEL then
+            entity_map.spawn(MakePinwheel(tower_pos))
+          elseif selected_tower_type == TypeId.LIGHTNING then 
+            entity_map.spawn(MakeLightning(tower_pos))
           end
         end
-      elseif grid_tile_type == selected_tower_type then
-        assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
       end
+    elseif grid_tile_type == selected_tower_type then
+      assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
     end
+  end
 
   -- Scroll to next tower option
   if Pressed(BTN_X) then
@@ -117,11 +115,13 @@ function DrawDebugStats()
     return
   end
 
+  local debug_x = 84
+  local debug_y = 1
   local mem = stat(0) * 100 / 2048
-  print("mem%: "..mem.."%", 84, 0, 7)
+  print("mem%: "..mem.."%", debug_x, debug_y, 7)
   local cpu = stat(1) * 100
-  print("cpu%: "..cpu.."%", 84, 8, 7)
-  print("ids: "..entity_map.num_allocated_ids(), 84, 16, 7)
+  print("cpu%: "..cpu.."%", debug_x, 8+debug_y, 7)
+  print("ids: "..entity_map.num_allocated_ids(), debug_x, 16+debug_y, 7)
 end
 
 function _init()
@@ -191,10 +191,10 @@ __gfx__
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000055555555000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000080080025252525000000000000000000000000000000000000000000000000000000000000000000000000
-000000000000000000040000000040000007a0000888888002020202000000000000000000000000000000000000000000000000000000000000000000000000
-00000000004000000000400000004000007aaa000878888000200020000000000000000000000000000000000000000000000000000000000000000000000000
-0044460000044000000040000000400000aaa9000888888020002000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000025252525000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000040000000040000007a0000080080002020202000000000000000000000000000000000000000000000000000000000000000000000000
+00000000004000000000400000004000007aaa000888888000200020000000000000000000000000000000000000000000000000000000000000000000000000
+0044460000044000000040000000400000aaa9000887888020002000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000006000000060000006000000a90000088880000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000008800000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
