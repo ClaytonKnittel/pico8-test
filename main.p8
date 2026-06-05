@@ -5,7 +5,13 @@ __lua__
 DEBUG = true
 DEBUG_DISPLAY_DIR_MAP = false
 
-#include src/util/input.p8
+LEFT = 0
+RIGHT = 1
+UP = 2
+DOWN = 3
+BTN_Z = 4
+BTN_X = 5
+
 #include src/util/direction.p8
 #include src/util/pos.p8
 
@@ -25,145 +31,7 @@ DEBUG_DISPLAY_DIR_MAP = false
 #include src/entities/pinwheel.p8
 #include src/entities/tower.p8
 
-function Index(x, y)
-  return x + y * WORLD_WIDTH + 1
-end
-
-function EnemyCanOccupyPos(pos)
-  local tile = grid.tile(pos)
-  return OCCUPIABLE_TILES[tile]
-end
-
-function UpdateInput()
-  local FREQ = 4
-
-  for i, timer in ipairs(button_timers) do
-    button_timers[i] = max(button_timers[i] - 1, 0)
-  end
-
-  function Pressed(button)
-    local pressed = btn(button) and button_timers[button + 1] == 0
-    if pressed then
-      button_timers[button + 1] = FREQ
-    end
-    return pressed
-  end
-
-  if Pressed(LEFT) then
-    cursor_pos.x = max(cursor_pos.x - 1, 0)
-  end
-  if Pressed(RIGHT) then
-    cursor_pos.x = min(cursor_pos.x + 1, WORLD_WIDTH - 1)
-  end
-  if Pressed(UP) then
-    cursor_pos.y = max(cursor_pos.y - 1, 0)
-  end
-  if Pressed(DOWN) then
-    cursor_pos.y = min(cursor_pos.y + 1, WORLD_HEIGHT - 1)
-  end
-
-  -- Place tower
-  if Pressed(BTN_Z) then
-    local grid_tile_type = grid.tile(cursor_pos)
-    local selected_tower_type = PLACEABLE_TILES[selected_tower_index]
-    assert(selected_tower_type ~= nil)
-
-    if grid_tile_type == TypeId.EMPTY then      
-      -- Check gold & build
-      local current_cost = TOWER_COST[selected_tower_type] or 0
-      if GOLD >= current_cost then
-        local added = grid.try_set_tile(cursor_pos, selected_tower_type)
-        if added then
-          GOLD -= current_cost
-          local tower_pos = {
-            x = cursor_pos.x,
-            y = cursor_pos.y,
-          }
-          if selected_tower_type == TypeId.ARCHER then
-            entity_map.spawn(MakeArcher(tower_pos))
-          elseif selected_tower_type == TypeId.PINWHEEL then
-            entity_map.spawn(MakePinwheel(tower_pos))
-          elseif selected_tower_type == TypeId.LIGHTNING then 
-            entity_map.spawn(MakeLightning(tower_pos))
-          end
-        end
-      end
-    elseif grid_tile_type == selected_tower_type then
-      assert(grid.try_set_tile(cursor_pos, TypeId.EMPTY))
-    end
-  end
-
-  -- Scroll to next tower option
-  if Pressed(BTN_X) then
-    if selected_tower_index == #PLACEABLE_TILES then
-      selected_tower_index = 1
-    else
-      selected_tower_index += 1
-    end
-  end
-end
-
-function DrawCursor()
-  local i = (time / 15) % 2
-  local x = cursor_pos.x * TILE_WIDTH
-  local y = cursor_pos.y * TILE_WIDTH
-  spr(TileSpriteId.CURSOR + i, x, y)
-end
-
-function DrawDebugStats()
-  if not DEBUG then
-    return
-  end
-
-  local debug_x = 84
-  local debug_y = 1
-  local mem = stat(0) * 100 / 2048
-  print("mem%: "..mem.."%", debug_x, debug_y, 7)
-  local cpu = stat(1) * 100
-  print("cpu%: "..cpu.."%", debug_x, 8+debug_y, 7)
-  print("ids: "..entity_map.num_allocated_ids(), debug_x, 16+debug_y, 7)
-end
-
-function _init()
-  if not DEBUG then
-    music(0)
-  end
-
-  selected_tower_index = 1
-
-  time = 0
-
-  cursor_pos = {
-    x = 0,
-    y = 0,
-  }
-
-  button_timers = { 0, 0, 0, 0, 0, 0 }
-
-  grid = MakeGrid()
-
-  enemy_hold_map = MakeEnemyHoldMap()
-
-  entity_map = MakeEntityMap()
-
-  enemy_grid = {}
-end
-
-function _update()
-  cls(3) -- moving here for now to avoid prints being cleared
-  UpdateInput()
-  UpdateEntities()
-  time += 1
-end
-
-function _draw()
-  -- cls(0)
-  DrawGrid()
-  DrawEntities()
-  DrawCursor()
-  DrawHUD()
-  DrawDebugStats()
-end
+#include src/init.p8
 
 __gfx__
 77777776777777660000000000060000007666000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

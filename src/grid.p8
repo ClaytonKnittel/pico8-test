@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakeGrid()
   local grid = {}
 
@@ -35,7 +38,7 @@ function MakeGrid()
       [Direction.LEFT] = -1,
       [Direction.RIGHT] = 1,
       [Direction.UP] = -WORLD_WIDTH,
-      [Direction.DOWN] = WORLD_WIDTH,
+      [Direction.DOWN] = WORLD_WIDTH
     }
 
     local dir_map = {}
@@ -182,4 +185,9 @@ function DrawGrid()
       ::continue::
     end
   end
+end
+
+function EnemyCanOccupyPos(pos)
+  local tile = grid.tile(pos)
+  return OCCUPIABLE_TILES[tile]
 end

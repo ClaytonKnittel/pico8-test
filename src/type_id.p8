@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 TypeId = {
   EMPTY = 0,
   WALL = 1,
@@ -10,26 +13,26 @@ TypeId = {
   PINWHEEL = 6,
   LIGHTNING = 7,
   JELLYFISH = 8,
-  WIZARD = 9,
+  WIZARD = 9
 }
 
 PLACEABLE_TILES = {
   TypeId.WALL,
   TypeId.ARCHER,
   TypeId.PINWHEEL,
-  TypeId.LIGHTNING,
+  TypeId.LIGHTNING
 }
 
 TILE_TYPE_TO_SPRITE = {
   [TypeId.WALL] = TileSpriteId.WALL,
   [TypeId.ARCHER] = TileSpriteId.ARCHER,
   [TypeId.PINWHEEL] = TileSpriteId.PINWHEEL,
-  [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING,
+  [TypeId.LIGHTNING] = TileSpriteId.LIGHTNING
 }
 
 OCCUPIABLE_TILES = {
   [TypeId.EMPTY] = true,
   [TypeId.ENTRANCE] = true,
   [TypeId.EXIT] = true,
-  [TypeId.ENEMY_HOLD] = true,
+  [TypeId.ENEMY_HOLD] = true
 }

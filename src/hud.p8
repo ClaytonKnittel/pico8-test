@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function DrawHUD()
   local hud_border_y = WORLD_HEIGHT * TILE_WIDTH
   local hud_data_y = hud_border_y + 4

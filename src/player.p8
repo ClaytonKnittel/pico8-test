@@ -1,2 +1,2 @@
-GOLD = 999
+GOLD = 666
 HEALTH = 10 -- not implemented yet

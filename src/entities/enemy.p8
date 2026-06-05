@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 ENEMY_INFO_MAP = {
   [TypeId.JELLYFISH] = {
     speed = 0.08,
@@ -96,7 +99,7 @@ function MakeEnemy(enemy_type)
 
   function enemy.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
 
     local prev_from_tile = PosAfter(to_tile, OPPOSITE_DIR[direction])
@@ -157,9 +160,7 @@ function MakeEnemy(enemy_type)
     local x = to_tile.x
     local y = to_tile.y
     local delta = DirDelta(direction)
-    x -= delta.x * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    y -= delta.y * (MAX_PROGRESS - progress - 1) / MAX_PROGRESS
-    return { x = x, y = y }
+    return to_tile - PosScale(delta, (MAX_PROGRESS - progress - 1) / MAX_PROGRESS)
   end
 
   function enemy.draw()
@@ -206,7 +207,7 @@ function MakeEnemy(enemy_type)
 
   function enemy.pos()
     local pos = corner_pos()
-    return { x = pos.x + 0.5, y = pos.y + 0.5 }
+    return MakePos(pos.x + 0.5, pos.y + 0.5)
   end
 
   function enemy.direction()

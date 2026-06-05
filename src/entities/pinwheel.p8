@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakePinwheel(pos)
   local pinwheel = {}
 
@@ -19,7 +22,7 @@ function MakePinwheel(pos)
 
   function pinwheel.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
     if grid.tile(pos) ~= TypeId.PINWHEEL then
       result.should_erase = true
@@ -33,7 +36,7 @@ function MakePinwheel(pos)
       for entity in entity_map.entities() do
         if not will_fire and IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
-          local enemy_distance = PosMagnitude(PosSub(enemy_pos, pinwheel.pos()))
+          local enemy_distance = PosMagnitude(enemy_pos - pinwheel.pos())
           if enemy_distance < range+0.25 then
             will_fire = true
           end
@@ -50,7 +53,7 @@ function MakePinwheel(pos)
           local pos_y = sin(angle)
 
           local offset_pos = { x = range * pos_x, y = range * pos_y }
-          local target_pos = PosAdd(pinwheel.pos(), offset_pos)
+          local target_pos = pinwheel.pos() + offset_pos
 
           local arrow = MakeArrow(pinwheel.pos(), target_pos, damage)
           entity_map.spawn(arrow)
@@ -73,10 +76,10 @@ function MakePinwheel(pos)
   end
 
   function pinwheel.pos()
-    return {
-      x = pos.x + 0.5,
-      y = pos.y + 0.5,
-    }
+    return MakePos(
+      pos.x + 0.5,
+      pos.y + 0.5
+    )
   end
 
   return pinwheel

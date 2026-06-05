@@ -1,3 +1,6 @@
+pico-8 cartridge // http://www.pico-8.com
+version 43
+__lua__
 function MakeArcher(pos)
   local archer = {}
 
@@ -10,7 +13,7 @@ function MakeArcher(pos)
 
   function archer.update()
     local result = {
-      should_erase = false,
+      should_erase = false
     }
     if grid.tile(pos) ~= TypeId.ARCHER then
       result.should_erase = true
@@ -25,7 +28,7 @@ function MakeArcher(pos)
       for entity in entity_map.entities() do
         if IsEnemyType(entity.type_id()) then
           local enemy_pos = entity.pos()
-          local enemy_distance = PosMagnitude(PosSub(enemy_pos, archer.pos()))
+          local enemy_distance = PosMagnitude(enemy_pos - archer.pos())
           if enemy_distance < range then
             if enemy_distance < target_enemy_distance then
               target_enemy_distance = enemy_distance
@@ -45,10 +48,10 @@ function MakeArcher(pos)
         -- Make a guess for where the enemy will be by the time our arrow
         -- would reach them had we aimed straight for them, and aim for there
         -- instead.
-        local distance_to_enemy = PosMagnitude(PosSub(target_pos, archer_pos))
+        local distance_to_enemy = PosMagnitude(target_pos - archer_pos)
         local scale = enemy_speed / ARROW_SPEED * distance_to_enemy
         local to_add = PosScale(DirDelta(enemy_dir), scale)
-        target_pos = PosAdd(target_pos, to_add)
+        target_pos = target_pos + to_add
 
         local arrow = MakeArrow(archer_pos, target_pos, damage)
         entity_map.spawn(arrow)
@@ -71,10 +74,7 @@ function MakeArcher(pos)
   end
 
   function archer.pos()
-    return {
-      x = pos.x + 0.5,
-      y = pos.y + 0.5,
-    }
+    return MakePos(pos.x + 0.5, pos.y + 0.5)
   end
 
   return archer
